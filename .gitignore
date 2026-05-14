@@ -1,2 +1,5 @@
 node_modules
 .env
+.claude
+ConvoApp-Implementation-Plan.txt
+CLAUDE.md

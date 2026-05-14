@@ -16,6 +16,7 @@ import cors from 'cors'
 
 import authRoutes from './routes/auth.route.js'
 import messageRoute from './routes/message.route.js'
+import conversationRoute from './routes/conversation.route.js'
 import { connectDB } from '../src/lib/db.js';
 import {server,app} from './lib/socket.js';
 
@@ -32,6 +33,7 @@ app.use(cookieParser())
 
 app.use('/api/auth',authRoutes)
 app.use('/api/messages',messageRoute)
+app.use('/api/conversations',conversationRoute)
 
 //make ready for deployment-->
 if(process.env.NODE_ENV=="production"){

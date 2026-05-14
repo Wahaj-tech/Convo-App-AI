@@ -1,27 +1,42 @@
 import mongoose from "mongoose";
 
-const messageSchema=mongoose.Schema({
-    senderId:{
-        type:mongoose.Schema.Types.ObjectId,
-        ref:'User',
-        required:true,
+const messageSchema = mongoose.Schema(
+  {
+    /*Before: Every message had senderId and receiverId — "from person A to person B." This only works for 1-on-1.
+  After: Every message has a conversationId — "this message belongs to this conversation." */
+    conversationId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Conversation",
+      required: true,
+      index: true,
+    },//This is the key change. Instead of "who sent this to whom," it's "which conversation does this belong to." When you open a chat, the app just does Message.find({ conversationId }) — give me all messages in this room. Works for 2 people or 20 people.
+    senderId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
     },
-    receiverId:{
-        type:mongoose.Schema.Types.ObjectId,
-        ref:"User",
-        required:true,
+    senderType: {//his does nothing right now. It's prep for Phase 2 when AI will send messages. We need to distinguish "a human sent this" from "the AI sent this" so the frontend can style them differently. It defaults to "user" so all current messages work without changes.
+      type: String,
+      enum: ["user", "ai"],
+      default: "user",
     },
-    text:{
-            type:String,
-            trim:true,
-            maxlength:2000,
+    receiverId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },//Notice required: true was removed. In the old system every message needed a receiver. In the new system, the conversation knows who the members are —individual messages don't need to specify a receiver. We keep the field so old data doesn't break, but new group messages won't set it.
+    text: {
+      type: String,
+      trim: true,
+      maxlength: 2000,
     },
-    image:{
-        type:String,
-
+    image: {
+      type: String,
     },
-},{timestamps:true},
+  },
+  { timestamps: true }
 );
 
-const Message=mongoose.model("Message",messageSchema);
+messageSchema.index({ conversationId: 1, createdAt: -1 });
+
+const Message = mongoose.model("Message", messageSchema);
 export default Message;

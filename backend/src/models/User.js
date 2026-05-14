@@ -19,6 +19,6 @@ const userSchema=mongoose.Schema({
         type:String,
         default:""
     }
-},{timeStamps:true})//to show user createdAt & updatedAt
+},{timestamps:true})//to show user createdAt & updatedAt
 const User=mongoose.model("User",userSchema);
 export default User;

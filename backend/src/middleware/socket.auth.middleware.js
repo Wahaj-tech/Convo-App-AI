@@ -5,7 +5,7 @@ import {ENV} from '../lib/env.js';
 export const socektAuthMiddleware=async(socket,next)=>{
     try{
         //extract token from http-only cookies
-        const token=socket.handshake.headers.cookie
+        const token=socket.handshake.headers.cookie   //why can't we use token= re.cookies.jwt-->There's no req, no res, no cookie-parser running. The only thing Socket.io gives you is the raw handshake
         ?.split("; ")
         .find((row)=>row.startsWith("jwt="))
         ?.split("=")[1];

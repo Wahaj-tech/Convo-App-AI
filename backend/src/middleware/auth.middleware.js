@@ -4,7 +4,7 @@ import userModel from '../models/User.js'
 
 export const protectRoute=async(req,res,next)=>{
     try{
-        const token=req.cookies.jwt
+        const token=req.cookies.jwt//Cookie: jwt=abc123; theme=dark this is how cookie looks and Express(re comes from express ) + cookie-parser middleware intercepts this raw string and automatically parses it into a nice object for you:req.cookies = { jwt: "abc123", theme: "dark" }
         if(!token){
             return res.status(401).json({message:"Unauthorized - No token Provided"})
             //res.redirect('/api/auth');

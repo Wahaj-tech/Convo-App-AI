@@ -1,6 +1,7 @@
 import Conversation from "../models/Conversation.js";
 import userModel from "../models/User.js";
 import cloudinary from "../lib/cloudinary.js";
+import { getReceiverSocketId, io, emitToConversation } from "../lib/socket.js";
 
 // ============================================================
 // CREATE CONVERSATION  (POST /api/conversations/)
@@ -122,6 +123,25 @@ export const createConversation = async (req, res) => {
 
       const populated = await Conversation.findById(conversation._id)
         .populate("members", "-password");
+
+      // --- Auto-join all online members into the new conversation's socket room ---
+      // When a group is created, every member who is currently online needs to
+      // join the Socket.io room for this conversation. Otherwise they won't
+      // receive real-time messages until they refresh the page.
+      //
+      // HOW: For each member, check if they have an active socket connection.
+      // If they do, tell that socket to join the room "conv:<conversationId>".
+      // Members who are offline will join the room when they next connect
+      // (the frontend sends "joinConversations" with all their conversation IDs on connect).
+      for (const memberId of members) {
+        const memberSocketId = getReceiverSocketId(memberId.toString());
+        if (memberSocketId) {
+          const memberSocket = io.sockets.sockets.get(memberSocketId);
+          if (memberSocket) {
+            memberSocket.join(`conv:${conversation._id}`);
+          }
+        }
+      }
 
       return res.status(201).json(populated);
     }
@@ -245,6 +265,10 @@ export const updateConversation = async (req, res) => {
       .populate("members", "-password")
       .populate("lastMessage");
 
+    // Notify all members that the group info changed (name or image updated).
+    // Their sidebar and chat header will update in real-time without refreshing.
+    emitToConversation(id, "conversationUpdated", populated);
+
     res.status(200).json(populated);
   } catch (err) {
     console.error("Error in updateConversation:", err);
@@ -295,7 +319,7 @@ export const addMembers = async (req, res) => {
 
     // Filter out anyone who's already a member — avoid duplicates
     const currentMemberIds = conversation.members.map((m) => m.toString());//it states that "currentMemberIds" is an array of strings representing the IDs of the current members in the conversation. We convert each member ID to a string for easy comparison with the incoming "members" array, which also contains string IDs.
-    const newMembers = members.filter((m) => !currentMemberIds.includes(m));//it 
+    const newMembers = members.filter((m) => !currentMemberIds.includes(m));//to avoid adding duplicates members we filter the incoming "members" array to only include those who are not already in the conversation. The result is stored in "newMembers". If all the incoming members are already part of the conversation, "newMembers" will be an empty array.
 
     if (newMembers.length === 0) {
       return res.status(400).json({ message: "All users are already members" });
@@ -304,9 +328,28 @@ export const addMembers = async (req, res) => {
     conversation.members.push(...newMembers);
     await conversation.save();
 
+    // --- Join new members into the conversation's socket room ---
+    // Same idea as group creation — if the new members are online, make
+    // their sockets join the room so they immediately start receiving messages.
+    // Also notify the room that new members were added (so existing members'
+    // UI can update the member list without refreshing).
+    for (const memberId of newMembers) {
+      const memberSocketId = getReceiverSocketId(memberId.toString());
+      if (memberSocketId) {
+        const memberSocket = io.sockets.sockets.get(memberSocketId);
+        if (memberSocket) {
+          memberSocket.join(`conv:${id}`);
+        }
+      }
+    }
+
     const populated = await Conversation.findById(id)
       .populate("members", "-password")
       .populate("lastMessage");
+
+    // Notify everyone in the conversation that members were added.
+    // The frontend can listen for "conversationUpdated" to refresh the member list.
+    emitToConversation(id, "conversationUpdated", populated);
 
     res.status(200).json(populated);
   } catch (err) {
@@ -370,9 +413,28 @@ export const removeMembers = async (req, res) => {
 
     await conversation.save();
 
+    // --- Remove kicked members from the conversation's socket room ---
+    // They should immediately stop receiving messages from this conversation.
+    // Also notify them that they were removed (so their UI can update).
+    for (const memberId of toRemove) {
+      const memberSocketId = getReceiverSocketId(memberId.toString());
+      if (memberSocketId) {
+        const memberSocket = io.sockets.sockets.get(memberSocketId);
+        if (memberSocket) {
+          // Tell the removed member they were kicked BEFORE removing them from the room.
+          // If we remove from the room first, they won't receive this notification.
+          memberSocket.emit("removedFromConversation", { conversationId: id });
+          memberSocket.leave(`conv:${id}`);
+        }
+      }
+    }
+
     const populated = await Conversation.findById(id)
       .populate("members", "-password")
       .populate("lastMessage");
+
+    // Notify remaining members that the group was updated (member list changed)
+    emitToConversation(id, "conversationUpdated", populated);
 
     res.status(200).json(populated);
   } catch (err) {
@@ -431,6 +493,16 @@ export const leaveConversation = async (req, res) => {
       }
     }
 
+    // --- Remove the leaving user from the conversation's socket room ---
+    // They should stop receiving real-time messages from this group immediately.
+    const leaverSocketId = getReceiverSocketId(userId.toString());
+    if (leaverSocketId) {
+      const leaverSocket = io.sockets.sockets.get(leaverSocketId);
+      if (leaverSocket) {
+        leaverSocket.leave(`conv:${id}`);
+      }
+    }
+
     // If only 0 or 1 person remains, delete the group — it's no longer viable
     if (conversation.members.length < 2) {
       await Conversation.findByIdAndDelete(id);
@@ -438,6 +510,15 @@ export const leaveConversation = async (req, res) => {
     }
 
     await conversation.save();
+
+    // Notify remaining members that someone left (so their UI updates the member list)
+    const populated = await Conversation.findById(id)
+      .populate("members", "-password")
+      .populate("lastMessage");
+
+    if (populated) {
+      emitToConversation(id, "conversationUpdated", populated);
+    }
 
     res.status(200).json({ message: "Left conversation successfully" });
   } catch (err) {

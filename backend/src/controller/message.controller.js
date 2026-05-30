@@ -1,5 +1,5 @@
 import cloudinary from "../lib/cloudinary.js";
-import { getReceiverSocketId, io } from "../lib/socket.js";
+import { emitToConversation } from "../lib/socket.js";
 import Message from "../models/Message.js";
 import User from "../models/User.js";
 import Conversation from "../models/Conversation.js";
@@ -261,26 +261,20 @@ export const sendMessage = async (req, res) => {
     await newMessage.populate("senderId", "fullName profilePic");
 
     // --- Step 6: Emit the message to all other conversation members via Socket.io ---
-    // Loop through every member in the conversation. For each one (except the sender),
-    // check if they're online (have a socket connection). If they are, push the
-    // message to them in real-time.
     //
-    // WHY skip the sender? Because the sender already has the message — they just
-    // sent it! The frontend adds it to the UI optimistically (immediately) without
-    // waiting for a socket event. Sending it back would cause a duplicate.
+    // OLD WAY (before rooms):
+    //   We looped through every member in the conversation, looked up their socket ID,
+    //   and sent the message to each one individually. Like walking to each person's desk.
     //
-    // NOTE: In Phase 1.6, this will be refactored to use Socket.io rooms, which is
-    // cleaner and more efficient. Instead of looping through members, we'll just do:
-    //   io.to("conv:conversationId").emit("newMessage", newMessage)
-    // But for now, this loop works fine.
-    for (const memberId of conversation.members) {
-      if (memberId.toString() === senderId.toString()) continue; // skip sender
-
-      const memberSocketId = getReceiverSocketId(memberId.toString());
-      if (memberSocketId) {
-        io.to(memberSocketId).emit("newMessage", newMessage);
-      }
-    }
+    // NEW WAY (with rooms — Phase 1.6):
+    //   Every user has already joined a Socket.io room named "conv:<conversationId>".
+    //   We just broadcast to that room — Socket.io delivers it to everyone automatically.
+    //   Like announcing in a meeting room — everyone present hears it at once.
+    //
+    // We pass senderId as the third argument (excludeUserId) so the sender is SKIPPED.
+    // WHY? The sender already has the message in their UI (added instantly via optimistic
+    // update when they hit "send"). If we also sent it via socket, they'd see it TWICE.
+    emitToConversation(conversationId, "newMessage", newMessage, senderId);
 
     res.status(200).json(newMessage);
   } catch (err) {

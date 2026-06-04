@@ -3,6 +3,7 @@ import { emitToConversation } from "../lib/socket.js";
 import Message from "../models/Message.js";
 import User from "../models/User.js";
 import Conversation from "../models/Conversation.js";
+import * as aiService from "../services/ai.service.js";
 
 // ============================================================
 // GET ALL CONTACTS  (GET /api/messages/contacts)
@@ -189,9 +190,12 @@ export const getMessages = async (req, res) => {
 //   One fast query instead of hundreds.
 export const sendMessage = async (req, res) => {
   try {
-    const { text, image } = req.body;
+    const { text, image, isAiPrompt } = req.body;
     const { conversationId } = req.params;
     const senderId = req.user._id;
+
+    console.log(`[MSG] Incoming message: conv=${conversationId}, isAiPrompt=${isAiPrompt}, text="${text}"`);
+
 
     // --- Validation ---
     // Must have at least text or image — can't send an empty message
@@ -275,6 +279,12 @@ export const sendMessage = async (req, res) => {
     // WHY? The sender already has the message in their UI (added instantly via optimistic
     // update when they hit "send"). If we also sent it via socket, they'd see it TWICE.
     emitToConversation(conversationId, "newMessage", newMessage, senderId);
+
+    // --- AI Integration (Phase 2) ---
+    // Check if the message mentions @AI or has the isAiPrompt flag.
+    if (isAiPrompt || aiService.detectAiMention(text)) {
+      aiService.processAiResponse(conversationId, newMessage);
+    }
 
     res.status(200).json(newMessage);
   } catch (err) {

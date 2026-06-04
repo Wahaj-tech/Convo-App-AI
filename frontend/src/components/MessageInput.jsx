@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import useKeyboardSound from "../hooks/useKeyboardSound";
 import { useChatStore } from "../store/useChatStore";
 import toast from "react-hot-toast";
-import { ImageIcon, SendIcon, XIcon } from "lucide-react";
+import { ImageIcon, SendIcon, XIcon, SparklesIcon } from "lucide-react";
 
 function MessageInput() {
   const  playRandomKeyStrokeSound  = useKeyboardSound();
@@ -13,18 +13,24 @@ function MessageInput() {
 
   const { sendMessage, isSoundEnabled } = useChatStore();
 
-  const handleSendMessage = (e) => {
-    e.preventDefault();
+  const handleSendMessage = (e, isAiPrompt = false) => {
+    if (e) e.preventDefault();
     if (!text.trim() && !imagePreview) return;
     if (isSoundEnabled) playRandomKeyStrokeSound();
 
-    sendMessage({
-      text: text.trim(),
-      image: imagePreview,
-    });
+    const currentText = text.trim();
+    const currentImage = imagePreview;
+
+    // Reset state early for better UX
     setText("");
-    setImagePreview("");
+    setImagePreview(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
+
+    sendMessage({
+      text: currentText,
+      image: currentImage,
+      isAiPrompt: isAiPrompt,
+    });
   };
 
   const handleImageChange = (e) => {
@@ -95,9 +101,19 @@ function MessageInput() {
           <ImageIcon className="w-5 h-5" />
         </button>
         <button
+          type="button"
+          onClick={(e) => handleSendMessage(e, true)}
+          disabled={!text.trim() && !imagePreview}
+          className="bg-gradient-to-r from-violet-500 to-purple-600 text-white rounded-lg px-4 py-2 font-medium hover:from-violet-600 hover:to-purple-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-purple-500/20"
+          title="Ask AI"
+        >
+          <SparklesIcon className="w-5 h-5" />
+        </button>
+
+        <button
           type="submit"
           disabled={!text.trim() && !imagePreview}
-          className="bg-gradient-to-r from-cyan-500 to-cyan-600 text-white rounded-lg px-4 py-2 font-medium hover:from-cyan-600 hover:to-cyan-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          className="bg-gradient-to-r from-cyan-500 to-cyan-600 text-white rounded-lg px-4 py-2 font-medium hover:from-cyan-600 hover:to-cyan-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-cyan-500/20"
         >
           <SendIcon className="w-5 h-5" />
         </button>

@@ -43,11 +43,10 @@ const conversationSchema = mongoose.Schema(
 conversationSchema.index({ members: 1, type: 1 });
 conversationSchema.index({ lastMessageAt: -1 });
 
-conversationSchema.pre("validate", function (next) {
+conversationSchema.pre("validate", function () {
   if (this.type === "group" && !this.name) {
-    return next(new Error("Group conversations require a name"));
+    throw new Error("Group conversations require a name");
   }
-  next();
 });//This runs before Mongoose saves to the database. If someone tries to create a group with no name, it stops them.
 
 const Conversation = mongoose.model("Conversation", conversationSchema);
@@ -62,8 +61,7 @@ export default Conversation;
   phone book sorted alphabetically, you jump straight to "W." That's what an index does for MongoDB.
 
   ---
-  conversationSchema.index({ members: 1, type: 1 })
-  
+  conversationSchema.index({ members: 1, type: 1 })  //members: 1 means we're indexing the members field in ascending order. type: 1 means we're also including the type field in the index. This creates a compound index on both fields together.
   This speeds up the query: "Find all conversations this user is in."
 
   // This runs every time someone opens the app sidebar

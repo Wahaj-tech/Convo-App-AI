@@ -1,5 +1,6 @@
 import Conversation from "../models/Conversation.js";
 import userModel from "../models/User.js";
+import Message from "../models/Message.js";
 import cloudinary from "../lib/cloudinary.js";
 import { getReceiverSocketId, io, emitToConversation } from "../lib/socket.js";
 
@@ -150,7 +151,7 @@ export const createConversation = async (req, res) => {
     return res.status(400).json({ message: "type must be 'direct' or 'group'" });
   } catch (err) {
     console.error("Error in createConversation:", err);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ message: "Server error", error: err.message });
   }
 };
 

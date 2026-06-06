@@ -1,14 +1,18 @@
 import React, { useState } from 'react';
 import { useChatStore } from '../store/useChatStore';
-import { XIcon, InfoIcon } from 'lucide-react';
+import { XIcon, InfoIcon, BrainIcon, BotIcon } from 'lucide-react';
 import { useEffect } from 'react';
 import { useAuthStore } from '../store/useAuthStore';
 import GroupSettingsPanel from './GroupSettingsPanel';
+import ConversationMemoryPanel from './ConversationMemoryPanel';
+import PersonaSelector from './PersonaSelector';
 
 const ChatHeader = () => {
     const { selectedConversation, setSelectedConversation } = useChatStore();
     const { onlineUsers, authUser } = useAuthStore();
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+    const [isMemoryOpen, setIsMemoryOpen] = useState(false);
+    const [isPersonasOpen, setIsPersonasOpen] = useState(false);
 
     useEffect(() => {
         const handleEscKey = (e) => {
@@ -52,6 +56,12 @@ const ChatHeader = () => {
                     </div>
                 </div>
                 <div className='flex items-center space-x-4'>
+                    <button onClick={() => setIsPersonasOpen(true)} title="AI Personas">
+                        <BotIcon className='w-5 h-5 text-slate-400 hover:text-violet-400 transition-colors cursor-pointer' />
+                    </button>
+                    <button onClick={() => setIsMemoryOpen(true)} title="AI Memory">
+                        <BrainIcon className='w-5 h-5 text-slate-400 hover:text-violet-400 transition-colors cursor-pointer' />
+                    </button>
                     {isGroup && (
                         <button onClick={() => setIsSettingsOpen(true)}>
                             <InfoIcon className='w-5 h-5 text-slate-400 hover:text-cyan-400 transition-colors cursor-pointer' />
@@ -64,6 +74,8 @@ const ChatHeader = () => {
             </div>
 
             <GroupSettingsPanel isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
+            <ConversationMemoryPanel isOpen={isMemoryOpen} onClose={() => setIsMemoryOpen(false)} />
+            <PersonaSelector isOpen={isPersonasOpen} onClose={() => setIsPersonasOpen(false)} />
         </>
     );
 };

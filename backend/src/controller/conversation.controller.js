@@ -3,6 +3,8 @@ import userModel from "../models/User.js";
 import Message from "../models/Message.js";
 import cloudinary from "../lib/cloudinary.js";
 import { getReceiverSocketId, io, emitToConversation } from "../lib/socket.js";
+import * as memoryService from "../services/memory.service.js";
+import Persona from "../models/Persona.js";
 
 // ============================================================
 // CREATE CONVERSATION  (POST /api/conversations/)
@@ -178,6 +180,7 @@ export const getMyConversations = async (req, res) => {
     const conversations = await Conversation.find({ members: userId })//"Find all conversations where this user exists inside members array.""
       .populate("members", "-password")
       .populate("lastMessage")
+      .populate("personas")
       .sort({ lastMessageAt: -1 });
 
     res.status(200).json(conversations);
@@ -203,7 +206,8 @@ export const getConversationById = async (req, res) => {
 
     const conversation = await Conversation.findById(id)
       .populate("members", "-password")
-      .populate("lastMessage");
+      .populate("lastMessage")
+      .populate("personas");
 
     if (!conversation) {
       return res.status(404).json({ message: "Conversation not found" });
@@ -524,6 +528,127 @@ export const leaveConversation = async (req, res) => {
     res.status(200).json({ message: "Left conversation successfully" });
   } catch (err) {
     console.error("Error in leaveConversation:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// ============================================================
+// HELPER: confirm the requester is a member of the conversation
+// ============================================================
+// Reused by the memory endpoints. Returns the conversation if the user belongs
+// to it, otherwise sends the appropriate error response and returns null.
+const requireMembership = async (conversationId, userId, res) => {
+  const conversation = await Conversation.findById(conversationId);
+  if (!conversation) {
+    res.status(404).json({ message: "Conversation not found" });
+    return null;
+  }
+  const isMember = conversation.members.some(
+    (m) => m.toString() === userId.toString()
+  );
+  if (!isMember) {
+    res.status(403).json({ message: "You are not a member of this conversation" });
+    return null;
+  }
+  return conversation;
+};
+
+// ============================================================
+// GET CONVERSATION MEMORY  (GET /api/conversations/:id/memory)
+// ============================================================
+// Returns the distilled memory (summary, key decisions, action items, topics)
+// so the frontend memory panel can show "what the AI remembers."
+export const getConversationMemory = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { id } = req.params;
+
+    const conversation = await requireMembership(id, userId, res);
+    if (!conversation) return; // response already sent
+
+    // get-or-create — a brand-new conversation simply returns an empty memory.
+    const memory = await memoryService.getConversationMemory(id);
+    res.status(200).json(memory);
+  } catch (err) {
+    console.error("Error in getConversationMemory:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// ============================================================
+// UPDATE ACTION ITEM STATUS
+// (PATCH /api/conversations/:id/memory/action-items/:itemId)
+// ============================================================
+// Lets any member tick a todo as pending / in_progress / done.
+// Broadcasts the updated memory so everyone's panel stays in sync.
+export const updateActionItemStatus = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { id, itemId } = req.params;
+    const { status } = req.body;
+
+    const allowed = ["pending", "in_progress", "done"];
+    if (!allowed.includes(status)) {
+      return res.status(400).json({ message: "Invalid status" });
+    }
+
+    const conversation = await requireMembership(id, userId, res);
+    if (!conversation) return;
+
+    const memory = await memoryService.setActionItemStatus(id, itemId, status);
+    if (!memory) {
+      return res.status(404).json({ message: "Memory or action item not found" });
+    }
+
+    // Live-update everyone viewing this conversation's memory panel.
+    emitToConversation(id, "memoryUpdated", memory);
+
+    res.status(200).json(memory);
+  } catch (err) {
+    console.error("Error in updateActionItemStatus:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// ============================================================
+// UPDATE CONVERSATION PERSONAS  (PUT /api/conversations/:id/personas)
+// ============================================================
+// Curates which AI personas are "enabled" (and shown in @mention autocomplete)
+// for this conversation. Any member can set them. You may only enable default
+// personas or personas you created — you can't enable someone else's private one.
+export const updateConversationPersonas = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { id } = req.params;
+    const { personas } = req.body;
+
+    if (!Array.isArray(personas)) {
+      return res.status(400).json({ message: "personas must be an array of ids" });
+    }
+
+    const conversation = await requireMembership(id, userId, res);
+    if (!conversation) return;
+
+    // Only accept personas the requester is actually allowed to use.
+    const valid = await Persona.find({
+      _id: { $in: personas },
+      $or: [{ isDefault: true }, { createdBy: userId }],
+    }).select("_id");
+
+    conversation.personas = valid.map((p) => p._id);
+    await conversation.save();
+
+    const populated = await Conversation.findById(id)
+      .populate("members", "-password")
+      .populate("lastMessage")
+      .populate("personas");
+
+    // Everyone in the chat refreshes their persona list / autocomplete.
+    emitToConversation(id, "conversationUpdated", populated);
+
+    res.status(200).json(populated);
+  } catch (err) {
+    console.error("Error in updateConversationPersonas:", err);
     res.status(500).json({ message: "Server error" });
   }
 };

@@ -280,10 +280,12 @@ export const sendMessage = async (req, res) => {
     // update when they hit "send"). If we also sent it via socket, they'd see it TWICE.
     emitToConversation(conversationId, "newMessage", newMessage, senderId);
 
-    // --- AI Integration (Phase 2) ---
-    // Check if the message mentions @AI or has the isAiPrompt flag.
-    if (isAiPrompt || aiService.detectAiMention(text)) {
-      aiService.processAiResponse(conversationId, newMessage);
+    // --- AI Integration (Phase 2–4) ---
+    // Route to the AI pipeline if the ✨ button was used (isAiPrompt) OR the
+    // message contains any @mention. Gating on "@" avoids a persona DB lookup on
+    // every ordinary message. handleAiMentions then decides which persona(s) reply.
+    if (isAiPrompt || (text && text.includes("@"))) {
+      aiService.handleAiMentions(conversation, newMessage, isAiPrompt);
     }
 
     res.status(200).json(newMessage);

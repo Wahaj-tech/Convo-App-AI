@@ -20,6 +20,14 @@ const messageSchema = mongoose.Schema(
       enum: ["user", "ai"],
       default: "user",
     },
+    // Phase 4: when senderType is "ai", this records WHICH persona spoke
+    // (Code Reviewer, Project Manager, etc.). Populated so the UI can render the
+    // message with that persona's name/color. Null for plain/legacy AI messages.
+    personaId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Persona",
+      default: null,
+    },
     receiverId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
@@ -27,7 +35,10 @@ const messageSchema = mongoose.Schema(
     text: {
       type: String,
       trim: true,
-      maxlength: 2000,
+      // 8000 chars: humans rarely approach this, but AI persona replies (e.g. a
+      // detailed code review) can exceed the old 2000 limit. ai.service also
+      // truncates to this length as a guarantee, so a long reply never fails to save.
+      maxlength: 8000,
     },
     image: {
       type: String,

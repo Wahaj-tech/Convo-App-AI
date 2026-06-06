@@ -12,6 +12,8 @@ export const useChatStore = create((set, get) => ({
     isConversationsLoading: false,
     isMessagesLoading: false,
     aiTyping: {}, // { conversationId: boolean }
+    memory: null, // Phase 3: the distilled memory of the selected conversation
+    isMemoryLoading: false,
     isSoundEnabled: localStorage.getItem("isSoundEnabled") === "true" ? true : false,
 
     toggleSound: () => {
@@ -161,6 +163,46 @@ export const useChatStore = create((set, get) => ({
         }
     },
 
+    // --- Phase 4: set which personas are enabled for a conversation ---
+    setConversationPersonas: async (conversationId, personaIds) => {
+        try {
+            const res = await axiosInstance.put(`/conversations/${conversationId}/personas`, { personas: personaIds });
+            const updated = res.data;
+            set({
+                conversations: get().conversations.map(c => c._id === conversationId ? updated : c),
+                selectedConversation: get().selectedConversation?._id === conversationId ? updated : get().selectedConversation,
+            });
+        } catch (error) {
+            toast.error(error.response?.data.message || "Failed to update personas");
+        }
+    },
+
+    // --- Phase 3: Conversation Memory ---
+    getMemory: async (conversationId) => {
+        set({ isMemoryLoading: true, memory: null });
+        try {
+            const res = await axiosInstance.get(`/conversations/${conversationId}/memory`);
+            set({ memory: res.data });
+        } catch (error) {
+            toast.error(error.response?.data.message || "Failed to load memory");
+        } finally {
+            set({ isMemoryLoading: false });
+        }
+    },
+
+    toggleActionItem: async (conversationId, itemId, status) => {
+        try {
+            const res = await axiosInstance.patch(
+                `/conversations/${conversationId}/memory/action-items/${itemId}`,
+                { status }
+            );
+            // Server broadcasts "memoryUpdated" too, but update locally for instant feedback
+            set({ memory: res.data });
+        } catch (error) {
+            toast.error(error.response?.data.message || "Failed to update action item");
+        }
+    },
+
     sendMessage: async (data) => {
         const { selectedConversation, messages } = get();
         if (!selectedConversation) return;
@@ -233,14 +275,24 @@ export const useChatStore = create((set, get) => ({
             }
         });
 
-        socket.on("aiTyping", ({ conversationId, isTyping }) => {
+        socket.on("aiTyping", ({ conversationId, isTyping, persona }) => {
+            // Store the persona that's typing (so the indicator shows its name/color),
+            // or false when it stops. `persona || true` keeps it truthy for legacy events.
             set({
-                aiTyping: { ...get().aiTyping, [conversationId]: isTyping }
+                aiTyping: { ...get().aiTyping, [conversationId]: isTyping ? (persona || true) : false }
             });
         });
 
-        socket.on("aiError", ({ conversationId, error }) => {
+        socket.on("aiError", ({ error }) => {
             toast.error(error);
+        });
+
+        socket.on("memoryUpdated", (updatedMemory) => {
+            const { selectedConversation } = get();
+            // Only refresh the panel if it's for the conversation we're viewing
+            if (selectedConversation?._id === updatedMemory.conversationId) {
+                set({ memory: updatedMemory });
+            }
         });
 
         socket.on("conversationUpdated", (updatedConversation) => {
@@ -273,6 +325,7 @@ export const useChatStore = create((set, get) => ({
             socket.off("newMessage");
             socket.off("aiTyping");
             socket.off("aiError");
+            socket.off("memoryUpdated");
             socket.off("conversationUpdated");
             socket.off("removedFromConversation");
         }

@@ -47,22 +47,37 @@ const ChatContainer = () => {
             {messages.map((msg) => {
               const isMyMessage = msg.senderId?._id === authUser?._id || msg.senderId === authUser?._id;
               const isAiMessage = msg.senderType === "ai";
-              const senderName = msg.senderId?.fullName || (isAiMessage ? "Convo AI" : "Unknown");
-              
+              // Phase 4: a persona-tagged AI message styles its bubble with the persona color.
+              const persona = isAiMessage ? msg.personaId : null;
+              const personaColor = persona?.color || "#7C3AED";
+              const senderName = isAiMessage
+                ? (persona?.name || "Convo AI")
+                : (msg.senderId?.fullName || "Unknown");
+
+              // AI bubbles use an inline gradient from the persona's color; humans use the theme classes.
+              const aiBubbleStyle = isAiMessage && !isMyMessage
+                ? { background: `linear-gradient(135deg, ${personaColor}, ${personaColor}cc)` }
+                : undefined;
+
               return (
                 <div key={msg._id} className={`chat ${isMyMessage ? "chat-end" : "chat-start"}`}>
-                  <div className="chat-header mb-1 opacity-50 text-xs">
+                  <div className="chat-header mb-1 opacity-60 text-xs">
                     {(!isMyMessage && (selectedConversation.type === "group" || isAiMessage)) && (
-                      <span className="mr-2">{senderName}</span>
+                      <span className="mr-2 font-medium" style={isAiMessage ? { color: personaColor } : undefined}>
+                        {senderName}
+                      </span>
                     )}
                   </div>
-                  <div className={`chat-bubble relative ${
-                    isMyMessage 
-                    ? "bg-cyan-600 text-white" 
-                    : isAiMessage
-                    ? "bg-gradient-to-br from-violet-600 to-purple-700 text-white"
-                    : "bg-slate-800 text-slate-200"
-                  }`}>
+                  <div
+                    className={`chat-bubble relative text-white ${
+                      isMyMessage
+                        ? "bg-cyan-600"
+                        : isAiMessage
+                        ? ""
+                        : "bg-slate-800 text-slate-200"
+                    }`}
+                    style={aiBubbleStyle}
+                  >
                     {msg.image && (
                       <img src={msg.image} alt="Shared" className='rounded-lg h-48 object-cover ' />
                     )}
@@ -79,8 +94,8 @@ const ChatContainer = () => {
                 </div>
               );
             })}
-            
-            {isAiTyping && <AiTypingIndicator />}
+
+            {isAiTyping && <AiTypingIndicator persona={typeof isAiTyping === "object" ? isAiTyping : null} />}
 
             {/*to scroll to the latest message--->*/}
             <div ref={messageEndRef} />

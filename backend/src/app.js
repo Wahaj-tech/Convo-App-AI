@@ -17,8 +17,10 @@ import cors from 'cors'
 import authRoutes from './routes/auth.route.js'
 import messageRoute from './routes/message.route.js'
 import conversationRoute from './routes/conversation.route.js'
+import personaRoute from './routes/persona.route.js'
 import { connectDB } from '../src/lib/db.js';
 import {server,app} from './lib/socket.js';
+import { startSummarizationJob } from './jobs/summarization.job.js';
 
 dotenv.config()//to perform process.env.Variable_name 
 const __dirname=path.resolve();
@@ -34,6 +36,7 @@ app.use(cookieParser())
 app.use('/api/auth',authRoutes)
 app.use('/api/messages',messageRoute)
 app.use('/api/conversations',conversationRoute)
+app.use('/api/personas',personaRoute)
 
 //make ready for deployment-->
 if(process.env.NODE_ENV=="production"){
@@ -47,6 +50,8 @@ const PORT = process.env.PORT || 3000;
 server.listen(PORT,()=>{
     console.log(`server is running on port ${process.env.PORT}`);
     connectDB()
-})  
+    // Phase 3: start the background conversation-memory summarization job
+    startSummarizationJob()
+})
   
 

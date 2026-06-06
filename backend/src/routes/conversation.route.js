@@ -7,6 +7,9 @@ import {
   addMembers,
   removeMembers,
   leaveConversation,
+  getConversationMemory,
+  updateActionItemStatus,
+  updateConversationPersonas,
 } from "../controller/conversation.controller.js";
 import { protectRoute } from "../middleware/auth.middleware.js";
 import { arcjetProtection } from "../middleware/arcjet.middleware.js";
@@ -39,5 +42,16 @@ router.delete("/:id/members", protectRoute, removeMembers);
 
 // DELETE /api/conversations/:id         → Leave a group conversation
 router.delete("/:id", protectRoute, leaveConversation);
+
+// --- Phase 3: Conversation Memory ---
+// GET /api/conversations/:id/memory      → fetch the AI's distilled memory
+router.get("/:id/memory", protectRoute, getConversationMemory);
+
+// PATCH /api/conversations/:id/memory/action-items/:itemId → toggle a todo's status
+router.patch("/:id/memory/action-items/:itemId", protectRoute, updateActionItemStatus);
+
+// --- Phase 4: AI Personas ---
+// PUT /api/conversations/:id/personas → set which personas are enabled in this chat
+router.put("/:id/personas", protectRoute, updateConversationPersonas);
 
 export default router;

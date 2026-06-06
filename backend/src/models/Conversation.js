@@ -36,6 +36,15 @@ const conversationSchema = mongoose.Schema(
       type: Date,
       default: null,
     },//These are for performance. When you open the app, the sidebar shows all your conversations sorted by most recent, with a preview of the last message. Withoutthese fields, you'd have to search through the entire Messages collection for every single conversation each time — very slow. Instead, every time a message is sent, we update these two fields on the conversation, so the sidebar query is instant.
+    // Phase 4: which AI personas are "enabled" in this conversation. If empty,
+    // the app falls back to the default personas, so mentioning @CodeReviewer
+    // works out of the box. Curating this list controls the @mention autocomplete.
+    personas: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Persona",
+      },
+    ],
   },
   { timestamps: true }
 );

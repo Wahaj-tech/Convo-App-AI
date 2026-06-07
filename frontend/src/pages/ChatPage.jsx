@@ -1,49 +1,359 @@
-import BorderAnimatedContainer from "../components/BorderAnimatedContainer";
+import React, { useEffect, useState } from "react";
+import {
+  MessageSquare,
+  Users,
+  Bot,
+  Settings,
+  Plus,
+  Search,
+  Menu,
+  LogOut,
+  Volume2,
+  VolumeX,
+} from "lucide-react";
 import { useChatStore } from "../store/useChatStore";
-import ProfileHeader from "../components/ProfileHeader";
-import ActiveTabSwitch from "../components/ActiveTabSwitch";
-import ChatsList from "../components/ChatsList";
-import ContactList from "../components/ContactList";
+import { useAuthStore } from "../store/useAuthStore";
+import { C } from "../lib/theme";
 import ChatContainer from "../components/ChatContainer";
 import NoConversationPlaceholder from "../components/NoConversationPlaceholder";
 import CreateGroupModal from "../components/CreateGroupModal";
-import { PlusIcon } from "lucide-react";
-import { useState } from "react";
+import toast from "react-hot-toast";
 
-function ChatPage() {
-  const { activeTab, selectedConversation } = useChatStore();
-  const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
+/*
+  Full-screen Chat Hub (Figma "Desktop Chat Hub - Deep Dark"), wired to real data.
+  3 panes on desktop: side nav · conversation list · active chat.
+  On mobile it's a single pane that toggles: the list shows until a conversation
+  is selected, then the chat shows (ChatHeader's back/X clears the selection).
+*/
 
-  return (
-    <div className="relative w-full max-w-6xl h-[800px] ">
-      <BorderAnimatedContainer>
-        {/*LEFT SIDE */}
-        <div className="w-80 bg-slate-700/50 backdrop-blur-sm flex flex-col border-r border-slate-700/50">
-          <ProfileHeader />
-          <div className="px-4 py-2 flex items-center justify-between">
-            <ActiveTabSwitch />
-            <button 
-              onClick={() => setIsGroupModalOpen(true)}
-              className="p-1.5 rounded-lg bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500/20 transition-colors"
-              title="Create Group"
-            >
-              <PlusIcon className="w-5 h-5" />
-            </button>
-          </div>
-          <div className="flex-1 overflow-y-auto p-4 space-y-2">
-            {activeTab === "chats" ? <ChatsList /> : <ContactList />}
-          </div>
-        </div>
-
-        {/*RIGHT SIDE */}
-        <div className="flex-1 flex flex-col bg-slate-900/50 backdrop-blur-sm">
-          {selectedConversation ? <ChatContainer /> : <NoConversationPlaceholder />}
-        </div>
-      </BorderAnimatedContainer>
-
-      <CreateGroupModal isOpen={isGroupModalOpen} onClose={() => setIsGroupModalOpen(false)} />
-    </div>
-  )
+function timeAgo(iso) {
+  if (!iso) return "";
+  const diff = Date.now() - new Date(iso).getTime();
+  const m = Math.floor(diff / 60000);
+  if (m < 1) return "now";
+  if (m < 60) return `${m}m`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h`;
+  return `${Math.floor(h / 24)}d`;
 }
 
-export default ChatPage;
+// ---- side navigation -------------------------------------------------------
+function SideNavContent({ onClose, onNewChat }) {
+  const { authUser, logout, updateProfile } = useAuthStore();
+  const { activeTab, setActiveTab, isSoundEnabled, toggleSound, selectedConversation } = useChatStore();
+  const AVATAR_INPUT_ID = "convo-avatar-input";
+
+  const go = (tab) => {
+    setActiveTab(tab);
+    onClose?.();
+  };
+
+  const handleAvatar = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onloadend = () => updateProfile({ profilePic: reader.result });
+    reader.readAsDataURL(file);
+  };
+  const openFilePicker = () => document.getElementById(AVATAR_INPUT_ID)?.click();
+  const openPersonas = () =>
+    selectedConversation
+      ? document.dispatchEvent(new CustomEvent("open-personas"))
+      : toast("Open a conversation to manage its personas");
+
+  const NAV = [
+    { key: "chats", icon: MessageSquare, label: "Chats", onClick: () => go("chats") },
+    { key: "contacts", icon: Users, label: "Contacts", onClick: () => go("contacts") },
+    { key: "personas", icon: Bot, label: "Personas", onClick: openPersonas },
+    { key: "profile", icon: Settings, label: "Profile", onClick: openFilePicker },
+  ];
+
+  return (
+    <div className="flex h-full w-64 flex-col px-4 py-6" style={{ background: C.panel }}>
+      {/* brand */}
+      <div className="px-2 pb-8">
+        <p className="text-2xl font-bold" style={{ color: C.teal }}>
+          ConvoApp
+        </p>
+        <p className="text-xs font-semibold tracking-wider" style={{ color: C.muted }}>
+          AI Collaboration
+        </p>
+      </div>
+
+      {/* new chat */}
+      <button
+        onClick={() => { onNewChat?.(); onClose?.(); }}
+        className="mb-6 flex items-center justify-center gap-2 rounded py-2 text-sm font-medium"
+        style={{ background: C.teal, color: C.deep }}
+      >
+        <Plus size={16} />
+        New Chat
+      </button>
+
+      {/* nav */}
+      <nav className="flex flex-1 flex-col gap-1">
+        {NAV.map(({ key, icon, label, onClick }) => {
+          const on = key === activeTab;
+          return (
+            <button
+              key={key}
+              onClick={onClick}
+              className="flex items-center gap-4 rounded px-4 py-2 text-sm font-medium transition-colors"
+              style={{
+                color: on ? C.teal : C.muted,
+                background: on ? C.active : "transparent",
+                borderRight: on ? `2px solid ${C.teal}` : "2px solid transparent",
+              }}
+            >
+              {React.createElement(icon, { size: 20 })}
+              {label}
+            </button>
+          );
+        })}
+      </nav>
+
+      {/* footer: user + actions */}
+      <div className="flex flex-col gap-3 border-t pt-5" style={{ borderColor: C.border }}>
+        <div className="flex items-center gap-3 px-2">
+          <button onClick={openFilePicker} className="size-10 shrink-0 overflow-hidden rounded-xl" title="Change avatar">
+            <img src={authUser?.profilePic || "/avatar.png"} alt={authUser?.fullName} className="size-full object-cover" />
+          </button>
+          <input id={AVATAR_INPUT_ID} type="file" accept="image/*" onChange={handleAvatar} className="hidden" />
+          <div className="min-w-0 flex-1 leading-tight">
+            <p className="truncate text-sm font-medium" style={{ color: C.text }}>
+              {authUser?.fullName}
+            </p>
+            <p className="text-xs" style={{ color: C.teal }}>
+              Online
+            </p>
+          </div>
+          <button onClick={toggleSound} style={{ color: C.muted }} title="Toggle sound">
+            {isSoundEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
+          </button>
+          <button onClick={logout} style={{ color: C.muted }} title="Log out">
+            <LogOut size={18} />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---- a single conversation row --------------------------------------------
+function ConversationRow({ conv, authUser, onlineUsers, selected, onClick }) {
+  const isGroup = conv.type === "group";
+  const other = isGroup ? null : conv.members?.find((m) => m._id !== authUser?._id);
+  const name = isGroup ? conv.name : other?.fullName || "Chat";
+  const image = isGroup ? conv.groupImage : other?.profilePic;
+  const online = !isGroup && other && onlineUsers.includes(other._id);
+  const preview = conv.lastMessage
+    ? `${conv.lastMessage.senderId === authUser?._id ? "You: " : ""}${
+        conv.lastMessage.image ? "📷 Photo" : conv.lastMessage.text || ""
+      }`
+    : "No messages yet";
+
+  return (
+    <button
+      onClick={onClick}
+      className="flex w-full items-center gap-3 rounded-lg border p-3 text-left transition-colors"
+      style={{
+        background: selected ? C.active : "transparent",
+        borderColor: selected ? C.border : "transparent",
+      }}
+    >
+      <div className="relative shrink-0">
+        {image ? (
+          <img src={image} alt={name} className="size-12 rounded-xl object-cover" />
+        ) : (
+          <div
+            className="flex size-12 items-center justify-center rounded-xl border"
+            style={{ background: isGroup ? C.active : C.tealDim, borderColor: C.border }}
+          >
+            {isGroup ? <Users size={22} style={{ color: C.muted }} /> : <Bot size={22} style={{ color: C.teal }} />}
+          </div>
+        )}
+        {online && (
+          <span className="absolute bottom-0 right-0 size-3 rounded-full border-2" style={{ background: C.teal, borderColor: C.deep }} />
+        )}
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center justify-between gap-2">
+          <span className="truncate text-sm font-medium" style={{ color: C.text }}>
+            {name}
+          </span>
+          <span className="shrink-0 text-[11px]" style={{ color: C.muted }}>
+            {timeAgo(conv.lastMessageAt)}
+          </span>
+        </div>
+        <p className="truncate text-sm" style={{ color: C.muted }}>
+          {preview}
+        </p>
+      </div>
+    </button>
+  );
+}
+
+// ---- conversation / contact list (middle pane) ----------------------------
+function ListPane({ onOpenNav, onNewChat }) {
+  const {
+    activeTab,
+    conversations,
+    getMyConversations,
+    allContacts,
+    getAllContacts,
+    createConversation,
+    setActiveTab,
+    selectedConversation,
+    setSelectedConversation,
+    isConversationsLoading,
+  } = useChatStore();
+  const { authUser, onlineUsers } = useAuthStore();
+  const [search, setSearch] = useState("");
+
+  useEffect(() => {
+    getMyConversations();
+  }, [getMyConversations]);
+
+  useEffect(() => {
+    if (activeTab === "contacts") getAllContacts();
+  }, [activeTab, getAllContacts]);
+
+  const isContacts = activeTab === "contacts";
+
+  const filteredConvs = conversations.filter((c) => {
+    const other = c.type === "direct" ? c.members?.find((m) => m._id !== authUser?._id) : null;
+    const name = c.type === "group" ? c.name : other?.fullName || "";
+    return name.toLowerCase().includes(search.toLowerCase());
+  });
+  const filteredContacts = allContacts.filter((c) =>
+    c.fullName?.toLowerCase().includes(search.toLowerCase()),
+  );
+
+  const startDirect = async (contact) => {
+    await createConversation({ type: "direct", members: [contact._id] });
+    setActiveTab("chats");
+  };
+
+  return (
+    <div className="flex h-full w-full flex-col border-r md:w-80" style={{ background: C.deep, borderColor: C.border }}>
+      {/* search + mobile hamburger */}
+      <div className="flex items-center gap-2 p-4">
+        <button onClick={onOpenNav} className="rounded p-2 lg:hidden" style={{ color: C.muted, background: C.panelAlt }} aria-label="Menu">
+          <Menu size={18} />
+        </button>
+        <div className="relative flex flex-1 items-center rounded border px-3 py-2.5" style={{ background: C.panelAlt, borderColor: C.border }}>
+          <Search size={16} style={{ color: C.muted }} />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder={isContacts ? "Search contacts..." : "Search chats..."}
+            className="ml-3 w-full bg-transparent text-sm outline-none"
+            style={{ color: C.text }}
+          />
+        </div>
+        <button
+          onClick={onNewChat}
+          className="flex size-10 shrink-0 items-center justify-center rounded"
+          style={{ background: C.teal, color: C.deep }}
+          title="New group chat"
+        >
+          <Plus size={20} />
+        </button>
+      </div>
+
+      {/* list */}
+      <div className="flex-1 overflow-y-auto px-4 pb-4">
+        <p className="px-1 py-2 text-xs font-semibold uppercase tracking-wider" style={{ color: C.muted }}>
+          {isContacts ? "Contacts" : "Recent"}
+        </p>
+
+        {isConversationsLoading ? (
+          <p className="px-1 py-4 text-sm" style={{ color: C.muted }}>
+            Loading…
+          </p>
+        ) : isContacts ? (
+          <div className="flex flex-col gap-1">
+            {filteredContacts.map((contact) => (
+              <button
+                key={contact._id}
+                onClick={() => startDirect(contact)}
+                className="flex w-full items-center gap-3 rounded-lg p-3 text-left"
+              >
+                {contact.profilePic ? (
+                  <img src={contact.profilePic} alt={contact.fullName} className="size-12 rounded-xl object-cover" />
+                ) : (
+                  <div className="flex size-12 items-center justify-center rounded-xl border" style={{ background: C.active, borderColor: C.border }}>
+                    <Users size={22} style={{ color: C.muted }} />
+                  </div>
+                )}
+                <span className="truncate text-sm font-medium" style={{ color: C.text }}>
+                  {contact.fullName}
+                </span>
+                {onlineUsers.includes(contact._id) && (
+                  <span className="ml-auto size-2.5 rounded-full" style={{ background: C.teal }} />
+                )}
+              </button>
+            ))}
+            {!filteredContacts.length && (
+              <p className="px-1 py-4 text-sm" style={{ color: C.muted }}>No contacts found.</p>
+            )}
+          </div>
+        ) : (
+          <div className="flex flex-col gap-1">
+            {filteredConvs.map((conv) => (
+              <ConversationRow
+                key={conv._id}
+                conv={conv}
+                authUser={authUser}
+                onlineUsers={onlineUsers}
+                selected={selectedConversation?._id === conv._id}
+                onClick={() => setSelectedConversation(conv)}
+              />
+            ))}
+            {!filteredConvs.length && (
+              <p className="px-1 py-4 text-sm" style={{ color: C.muted }}>
+                No conversations yet. Tap a contact to start one.
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ---- page shell ------------------------------------------------------------
+export default function ChatPage() {
+  const { selectedConversation } = useChatStore();
+  const [navOpen, setNavOpen] = useState(false);
+  const [groupModalOpen, setGroupModalOpen] = useState(false);
+
+  return (
+    <div className="flex h-screen w-full overflow-hidden" style={{ background: C.deep }}>
+      {/* desktop side nav */}
+      <div className="hidden lg:flex">
+        <SideNavContent onNewChat={() => setGroupModalOpen(true)} />
+      </div>
+
+      {/* mobile side-nav drawer */}
+      {navOpen && (
+        <div className="fixed inset-0 z-50 flex lg:hidden">
+          <SideNavContent onClose={() => setNavOpen(false)} onNewChat={() => setGroupModalOpen(true)} />
+          <div className="flex-1 bg-black/50" onClick={() => setNavOpen(false)} />
+        </div>
+      )}
+
+      {/* conversation list — hidden on mobile when a chat is open */}
+      <div className={`${selectedConversation ? "hidden" : "flex"} w-full md:flex md:w-auto`}>
+        <ListPane onOpenNav={() => setNavOpen(true)} onNewChat={() => setGroupModalOpen(true)} />
+      </div>
+
+      {/* active chat — hidden on mobile until a chat is selected */}
+      <div className={`${selectedConversation ? "flex" : "hidden"} min-w-0 flex-1 flex-col md:flex`} style={{ background: C.deep }}>
+        {selectedConversation ? <ChatContainer /> : <NoConversationPlaceholder />}
+      </div>
+
+      <CreateGroupModal isOpen={groupModalOpen} onClose={() => setGroupModalOpen(false)} />
+    </div>
+  );
+}

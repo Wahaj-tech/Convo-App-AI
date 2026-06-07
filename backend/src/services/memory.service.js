@@ -213,13 +213,14 @@ export const maybeSummarize = async (
 export const buildAiContext = async (
   conversationId,
   excludeMessageId,
-  personaSystemPrompt // Phase 4: if given, this persona's instructions replace the base persona
+  personaSystemPrompt, // Phase 4: if given, this persona's instructions replace the base persona
+  recentLimit = RECENT_CONTEXT_LIMIT // Roundtable passes a smaller value to keep token usage low
 ) => {
   const memory = await getConversationMemory(conversationId);
 
   const recent = await Message.find({ conversationId })
     .sort({ createdAt: -1 })
-    .limit(RECENT_CONTEXT_LIMIT)
+    .limit(recentLimit)
     .populate("senderId", "fullName")
     .populate("personaId", "name"); // so AI turns are labeled with which persona spoke
 

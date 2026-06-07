@@ -2,8 +2,9 @@ import { useEffect, useState } from "react";
 import { usePersonaStore } from "../store/usePersonaStore";
 import { useChatStore } from "../store/useChatStore";
 import { useAuthStore } from "../store/useAuthStore";
-import { XIcon, PlusIcon, PencilIcon, Trash2Icon, BotIcon } from "lucide-react";
+import { X, Plus, Pencil, Trash2, Bot } from "lucide-react";
 import CreatePersonaModal from "./CreatePersonaModal";
+import { C } from "../lib/theme";
 
 // Phase 4: pick which AI personas are active (and appear in @mention autocomplete)
 // for the selected conversation. Also create/edit/delete your own personas.
@@ -20,7 +21,6 @@ const PersonaSelector = ({ isOpen, onClose }) => {
 
     if (!isOpen || !selectedConversation) return null;
 
-    // Which personas are explicitly enabled on this conversation right now?
     const enabledIds = (selectedConversation.personas || []).map((p) => p._id || p);
 
     const toggle = (personaId) => {
@@ -35,21 +35,23 @@ const PersonaSelector = ({ isOpen, onClose }) => {
 
     return (
         <>
-            <div className="fixed inset-y-0 right-0 w-80 bg-slate-800 border-l border-slate-700 shadow-2xl z-50 flex flex-col animate-in slide-in-from-right duration-300">
-                <div className="p-4 border-b border-slate-700 flex items-center justify-between bg-slate-800/50">
-                    <h2 className="text-lg font-bold text-slate-200 flex items-center gap-2">
-                        <BotIcon className="w-5 h-5 text-violet-400" /> AI Personas
+            <div
+                className="fixed inset-y-0 right-0 z-50 flex w-full max-w-sm flex-col border-l shadow-2xl"
+                style={{ background: C.panel, borderColor: C.border }}
+            >
+                <div className="flex items-center justify-between border-b p-4" style={{ borderColor: C.border }}>
+                    <h2 className="flex items-center gap-2 text-lg font-semibold" style={{ color: C.text }}>
+                        <Bot className="size-5" style={{ color: C.teal }} /> AI Personas
                     </h2>
-                    <button onClick={onClose} className="p-1 rounded-lg hover:bg-slate-700 text-slate-400">
-                        <XIcon className="w-5 h-5" />
+                    <button onClick={onClose} className="rounded-lg p-1" style={{ color: C.muted }}>
+                        <X className="size-5" />
                     </button>
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
-                    <p className="text-xs text-slate-500">
+                <div className="flex-1 space-y-3 overflow-y-auto p-4">
+                    <p className="text-xs" style={{ color: C.muted }}>
                         Toggle personas on for this chat, then summon them with their{" "}
-                        <span className="text-violet-400">@mention</span>. If none are on, the
-                        default personas stay available.
+                        <span style={{ color: C.teal }}>@mention</span>. If none are on, the default personas stay available.
                     </p>
 
                     {personas.map((p) => {
@@ -58,37 +60,41 @@ const PersonaSelector = ({ isOpen, onClose }) => {
                         return (
                             <div
                                 key={p._id}
-                                className="bg-slate-900/50 rounded-xl p-3 border border-slate-700/50 flex items-start gap-3"
+                                className="flex items-start gap-3 rounded-lg border p-3"
+                                style={{ background: C.deep, borderColor: enabled ? C.teal : C.border }}
                             >
-                                <span className="size-3 rounded-full mt-1 shrink-0" style={{ backgroundColor: p.color }} />
-                                <div className="flex-1 min-w-0">
+                                <span className="mt-1 size-3 shrink-0 rounded-full" style={{ backgroundColor: p.color }} />
+                                <div className="min-w-0 flex-1">
                                     <div className="flex items-center justify-between gap-2">
-                                        <span className="text-sm font-medium text-slate-200 truncate">{p.name}</span>
-                                        {/* on/off toggle */}
+                                        <span className="truncate text-sm font-medium" style={{ color: C.text }}>{p.name}</span>
                                         <button
                                             onClick={() => toggle(p._id)}
-                                            className={`relative w-9 h-5 rounded-full transition-colors shrink-0 ${enabled ? "bg-violet-500" : "bg-slate-600"}`}
+                                            className="relative h-5 w-9 shrink-0 rounded-full transition-colors"
+                                            style={{ background: enabled ? C.teal : C.active }}
                                             title={enabled ? "Enabled" : "Disabled"}
                                         >
-                                            <span className={`absolute top-0.5 size-4 bg-white rounded-full transition-all ${enabled ? "left-4" : "left-0.5"}`} />
+                                            <span
+                                                className="absolute top-0.5 size-4 rounded-full transition-all"
+                                                style={{ left: enabled ? 18 : 2, background: enabled ? C.panel : C.muted }}
+                                            />
                                         </button>
                                     </div>
-                                    <p className="text-[11px] text-violet-400/80 mt-0.5">@{handleOf(p.name)}</p>
-                                    {p.description && (
-                                        <p className="text-xs text-slate-400 mt-1">{p.description}</p>
-                                    )}
+                                    <p className="mt-0.5 text-[11px]" style={{ color: C.teal }}>@{handleOf(p.name)}</p>
+                                    {p.description && <p className="mt-1 text-xs" style={{ color: C.muted }}>{p.description}</p>}
                                     {isOwner && (
-                                        <div className="flex gap-3 mt-2">
-                                            <button onClick={() => openEdit(p)} className="text-[11px] text-slate-400 hover:text-cyan-400 flex items-center gap-1">
-                                                <PencilIcon className="w-3 h-3" /> Edit
+                                        <div className="mt-2 flex gap-3">
+                                            <button onClick={() => openEdit(p)} className="flex items-center gap-1 text-[11px]" style={{ color: C.muted }}>
+                                                <Pencil className="size-3" /> Edit
                                             </button>
-                                            <button onClick={() => deletePersona(p._id)} className="text-[11px] text-slate-400 hover:text-red-400 flex items-center gap-1">
-                                                <Trash2Icon className="w-3 h-3" /> Delete
+                                            <button onClick={() => deletePersona(p._id)} className="flex items-center gap-1 text-[11px]" style={{ color: "#e06c75" }}>
+                                                <Trash2 className="size-3" /> Delete
                                             </button>
                                         </div>
                                     )}
                                     {p.isDefault && (
-                                        <span className="inline-block mt-2 text-[9px] uppercase font-bold tracking-wide text-slate-500 bg-slate-700/50 px-1.5 py-0.5 rounded">Default</span>
+                                        <span className="mt-2 inline-block rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide" style={{ background: C.active, color: C.muted }}>
+                                            Default
+                                        </span>
                                     )}
                                 </div>
                             </div>
@@ -97,9 +103,10 @@ const PersonaSelector = ({ isOpen, onClose }) => {
 
                     <button
                         onClick={openCreate}
-                        className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-dashed border-slate-600 text-slate-400 hover:text-violet-400 hover:border-violet-500 transition-colors text-sm"
+                        className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed py-2.5 text-sm transition-colors"
+                        style={{ borderColor: C.border, color: C.muted }}
                     >
-                        <PlusIcon className="w-4 h-4" /> Create custom persona
+                        <Plus className="size-4" /> Create custom persona
                     </button>
                 </div>
             </div>

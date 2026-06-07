@@ -190,11 +190,11 @@ export const getMessages = async (req, res) => {
 //   One fast query instead of hundreds.
 export const sendMessage = async (req, res) => {
   try {
-    const { text, image, isAiPrompt } = req.body;
+    const { text, image, isAiPrompt, isPanel } = req.body;
     const { conversationId } = req.params;
     const senderId = req.user._id;
 
-    console.log(`[MSG] Incoming message: conv=${conversationId}, isAiPrompt=${isAiPrompt}, text="${text}"`);
+    console.log(`[MSG] Incoming message: conv=${conversationId}, isAiPrompt=${isAiPrompt}, isPanel=${isPanel}, text="${text}"`);
 
 
     // --- Validation ---
@@ -280,11 +280,15 @@ export const sendMessage = async (req, res) => {
     // update when they hit "send"). If we also sent it via socket, they'd see it TWICE.
     emitToConversation(conversationId, "newMessage", newMessage, senderId);
 
-    // --- AI Integration (Phase 2–4) ---
-    // Route to the AI pipeline if the ✨ button was used (isAiPrompt) OR the
-    // message contains any @mention. Gating on "@" avoids a persona DB lookup on
-    // every ordinary message. handleAiMentions then decides which persona(s) reply.
-    if (isAiPrompt || (text && text.includes("@"))) {
+    // --- AI Integration (Phase 2–4 + Roundtable) ---
+    // The "Convene Panel" button (isPanel) or an "@panel" mention runs the full
+    // AI Roundtable: enabled personas deliberate, then a moderator synthesizes a
+    // Decision Card. Otherwise the ✨ button (isAiPrompt) or any @mention routes
+    // to handleAiMentions, which picks the summoned persona(s). Gating on "@"
+    // avoids a persona DB lookup on every ordinary message.
+    if (isPanel || (text && /(^|\s)@panel(\b|[^\w])/i.test(text))) {
+      aiService.runRoundtable(conversation, newMessage);
+    } else if (isAiPrompt || (text && text.includes("@"))) {
       aiService.handleAiMentions(conversation, newMessage, isAiPrompt);
     }
 

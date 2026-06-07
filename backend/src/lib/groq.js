@@ -29,9 +29,15 @@ export const BASE_SYSTEM_PROMPT = `You are Convo AI, an intelligent and helpful 
 - Use Markdown for formatting (bold, lists, code snippets).
 - Always identify yourself as Convo AI when asked.`;
 
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
 // Low-level call to Groq. `messages` is OpenAI format: [{ role, content }],
 // where role is "system" | "user" | "assistant". Returns the assistant's text.
-const callGroq = async (body) => {
+//
+// Retries on 429 (rate limit) with backoff. The free tier caps tokens-per-minute,
+// and bursty features like the AI Roundtable can trip it; retrying lets the call
+// self-heal once the window resets instead of failing the whole flow.
+const callGroq = async (body, attempt = 0) => {
   const res = await fetch(GROQ_URL, {
     method: "POST",
     headers: {
@@ -40,6 +46,15 @@ const callGroq = async (body) => {
     },
     body: JSON.stringify({ model: GROQ_MODEL, ...body }),
   });
+
+  if (res.status === 429 && attempt < 4) {
+    // Honor the server's Retry-After when present; otherwise back off 2s, 4s, 8s…
+    const retryAfter = parseFloat(res.headers.get("retry-after"));
+    const waitMs = (Number.isFinite(retryAfter) ? retryAfter : 2 ** attempt) * 1000;
+    console.warn(`[Groq] 429 rate-limited — retrying in ${waitMs}ms (attempt ${attempt + 1}/4)`);
+    await sleep(waitMs);
+    return callGroq(body, attempt + 1);
+  }
 
   if (!res.ok) {
     const detail = await res.text();

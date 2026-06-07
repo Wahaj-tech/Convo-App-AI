@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { useChatStore } from '../store/useChatStore';
-import { XIcon, InfoIcon, BrainIcon, BotIcon } from 'lucide-react';
+import { XIcon, InfoIcon, ArrowLeft, BrainCircuit, Bot, Users } from 'lucide-react';
 import { useEffect } from 'react';
 import { useAuthStore } from '../store/useAuthStore';
 import GroupSettingsPanel from './GroupSettingsPanel';
 import ConversationMemoryPanel from './ConversationMemoryPanel';
 import PersonaSelector from './PersonaSelector';
+import { C } from '../lib/theme';
 
 const ChatHeader = () => {
     const { selectedConversation, setSelectedConversation } = useChatStore();
@@ -16,59 +17,76 @@ const ChatHeader = () => {
 
     useEffect(() => {
         const handleEscKey = (e) => {
-            if (e.key === "Escape") {
-                setSelectedConversation(null);
-            }
+            if (e.key === "Escape") setSelectedConversation(null);
         };
-
         window.addEventListener("keydown", handleEscKey);
-        return () => {
-            window.removeEventListener("keydown", handleEscKey);
-        };
+        return () => window.removeEventListener("keydown", handleEscKey);
     }, [setSelectedConversation]);
+
+    // Allow the sidebar "Personas" nav (in ChatPage) to open this panel.
+    useEffect(() => {
+        const open = () => setIsPersonasOpen(true);
+        document.addEventListener("open-personas", open);
+        return () => document.removeEventListener("open-personas", open);
+    }, []);
 
     if (!selectedConversation) return null;
 
     const isGroup = selectedConversation.type === "group";
     const otherMember = isGroup ? null : selectedConversation.members.find(m => m._id !== authUser?._id);
-    
+
     const displayName = isGroup ? selectedConversation.name : (otherMember?.fullName || "Chat");
-    const displayImage = isGroup ? (selectedConversation.groupImage || "/avatar.png") : (otherMember?.profilePic || "/avatar.png");
+    const displayImage = isGroup ? selectedConversation.groupImage : otherMember?.profilePic;
     const isOnline = !isGroup && otherMember && onlineUsers.includes(otherMember._id);
 
     return (
         <>
-            <div className='flex justify-between items-center bg-slate-800/50 border-b border-slate-700/50 max-h-[84px] px-6 py-4 flex-1 '>
-                <div className='flex items-center space-x-3'>
-                    <div className={`avatar ${isOnline ? "online" : ""}`}>
-                        <div className='w-12 rounded-full'>
-                            <img src={displayImage} alt={displayName} />
-                        </div>
+            <div
+                className="flex h-16 shrink-0 items-center justify-between border-b px-4 md:px-6"
+                style={{ background: C.panel, borderColor: C.border }}
+            >
+                <div className="flex min-w-0 items-center gap-3">
+                    {/* mobile back */}
+                    <button onClick={() => setSelectedConversation(null)} className="md:hidden" style={{ color: C.text }} aria-label="Back">
+                        <ArrowLeft size={20} />
+                    </button>
+
+                    {/* avatar */}
+                    <div className="relative shrink-0">
+                        {displayImage ? (
+                            <img src={displayImage} alt={displayName} className="size-10 rounded-xl object-cover" />
+                        ) : (
+                            <div className="flex size-10 items-center justify-center rounded-xl" style={{ background: isGroup ? C.active : C.tealDim }}>
+                                {isGroup ? <Users size={20} style={{ color: C.muted }} /> : <Bot size={20} style={{ color: C.teal }} />}
+                            </div>
+                        )}
+                        {isOnline && (
+                            <span className="absolute bottom-0 right-0 size-2.5 rounded-full border-2" style={{ background: C.teal, borderColor: C.panel }} />
+                        )}
                     </div>
-                    <div>
-                        <h3 className='text-slate-200 font-medium'>{displayName}</h3>
-                        <p className='text-slate-400 text-sm'>
-                            {isGroup 
-                                ? `${selectedConversation.members.length} members` 
-                                : (isOnline ? "Online" : "Offline")
-                            }
+
+                    <div className="min-w-0">
+                        <h3 className="truncate font-medium" style={{ color: C.text }}>{displayName}</h3>
+                        <p className="text-sm" style={{ color: C.muted }}>
+                            {isGroup ? `${selectedConversation.members.length} members` : (isOnline ? "Online" : "Offline")}
                         </p>
                     </div>
                 </div>
-                <div className='flex items-center space-x-4'>
-                    <button onClick={() => setIsPersonasOpen(true)} title="AI Personas">
-                        <BotIcon className='w-5 h-5 text-slate-400 hover:text-violet-400 transition-colors cursor-pointer' />
+
+                <div className="flex items-center gap-2 md:gap-3">
+                    <button onClick={() => setIsPersonasOpen(true)} title="AI Personas" className="p-2" style={{ color: C.muted }}>
+                        <Bot className="size-5" />
                     </button>
-                    <button onClick={() => setIsMemoryOpen(true)} title="AI Memory">
-                        <BrainIcon className='w-5 h-5 text-slate-400 hover:text-violet-400 transition-colors cursor-pointer' />
+                    <button onClick={() => setIsMemoryOpen(true)} title="AI Memory" className="p-2" style={{ color: C.muted }}>
+                        <BrainCircuit className="size-5" />
                     </button>
                     {isGroup && (
-                        <button onClick={() => setIsSettingsOpen(true)}>
-                            <InfoIcon className='w-5 h-5 text-slate-400 hover:text-cyan-400 transition-colors cursor-pointer' />
+                        <button onClick={() => setIsSettingsOpen(true)} title="Group settings" className="p-2" style={{ color: C.muted }}>
+                            <InfoIcon className="size-5" />
                         </button>
                     )}
-                    <button onClick={() => setSelectedConversation(null)}>
-                        <XIcon className='w-5 h-5 text-slate-400 hover:text-slate-200 transition-colors cursor-pointer' />
+                    <button onClick={() => setSelectedConversation(null)} title="Close" className="hidden p-2 md:block" style={{ color: C.muted }}>
+                        <XIcon className="size-5" />
                     </button>
                 </div>
             </div>

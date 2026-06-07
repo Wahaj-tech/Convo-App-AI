@@ -43,6 +43,19 @@ const messageSchema = mongoose.Schema(
     image: {
       type: String,
     },
+    // Roundtable (AI Panel): "chat" is a normal message; "verdict" is the
+    // moderator's synthesized Decision Card. The structured verdict lives in `meta`.
+    messageType: {
+      type: String,
+      enum: ["chat", "verdict"],
+      default: "chat",
+    },
+    // Free-form structured payload for special messages (e.g. the panel verdict:
+    // { consensus, keyPoints[], disagreements[], recommendation, risks[] }).
+    meta: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null,
+    },
   },
   { timestamps: true }
 );

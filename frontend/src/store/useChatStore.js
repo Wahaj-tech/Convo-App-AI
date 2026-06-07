@@ -11,6 +11,8 @@ export const useChatStore = create((set, get) => ({
     selectedConversation: null,
     isConversationsLoading: false,
     isMessagesLoading: false,
+    hasMoreMessages: false, // are there older messages to page in? (from server's hasMore)
+    isLoadingOlder: false, // currently fetching an older page (scroll-up)
     aiTyping: {}, // { conversationId: boolean }
     memory: null, // Phase 3: the distilled memory of the selected conversation
     isMemoryLoading: false,
@@ -65,7 +67,8 @@ export const useChatStore = create((set, get) => ({
         set({ isMessagesLoading: true });
         try {
             const res = await axiosInstance.get(`/messages/${conversationId}`);
-            set({ messages: res.data.messages });
+            // Server returns the NEWEST page (oldest→newest) plus hasMore.
+            set({ messages: res.data.messages, hasMoreMessages: !!res.data.hasMore });
 
             // Ensure we are joined to this conversation's socket room
             const socket = useAuthStore.getState().socket;
@@ -76,6 +79,33 @@ export const useChatStore = create((set, get) => ({
             toast.error(error.response?.data.message || "Failed to load messages");
         } finally {
             set({ isMessagesLoading: false });
+        }
+    },
+
+    // Page in OLDER messages when the user scrolls to the top of the chat.
+    // Uses the oldest loaded message's _id as the cursor (?before=...), so cost
+    // stays constant no matter how long the conversation is.
+    loadOlderMessages: async (conversationId) => {
+        const { messages, hasMoreMessages, isLoadingOlder } = get();
+        if (!hasMoreMessages || isLoadingOlder || messages.length === 0) return;
+
+        const oldestId = messages[0]?._id;
+        if (!oldestId) return;
+
+        set({ isLoadingOlder: true });
+        try {
+            const res = await axiosInstance.get(
+                `/messages/${conversationId}?before=${oldestId}&limit=50`
+            );
+            // Prepend the older page in front of what we already have.
+            set({
+                messages: [...res.data.messages, ...get().messages],
+                hasMoreMessages: !!res.data.hasMore,
+            });
+        } catch (error) {
+            toast.error(error.response?.data.message || "Failed to load older messages");
+        } finally {
+            set({ isLoadingOlder: false });
         }
     },
 

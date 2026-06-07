@@ -1,4 +1,5 @@
 import React from "react";
+import { Link } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 
 /*
@@ -38,10 +39,14 @@ function FeatureBlocks() {
       className="relative hidden w-1/2 items-center justify-center overflow-hidden md:flex"
       style={{ background: "linear-gradient(160deg, #f4f3ef 0%, #e9e7e0 100%)" }}
     >
-      {/* kicker */}
-      <span className="absolute left-12 top-10" style={{ fontFamily: MONO, fontSize: 12, letterSpacing: "-0.02em", color: MUTED }}>
+      {/* kicker — links to the marketing page */}
+      <Link
+        to="/why"
+        className="absolute left-12 top-10 z-10 transition-colors hover:opacity-70"
+        style={{ fontFamily: MONO, fontSize: 12, letterSpacing: "-0.02em", color: MUTED }}
+      >
         [ WHY CONVOAPP ]
-      </span>
+      </Link>
 
       {/* floating accent cubes */}
       <span className="animate-cube-spin absolute right-16 top-24 size-10 rounded-md" style={{ background: "#fff100", boxShadow: "5px 5px 0 #cabf00" }} />

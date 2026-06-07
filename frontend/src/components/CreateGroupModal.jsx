@@ -10,6 +10,7 @@ const CreateGroupModal = ({ isOpen, onClose }) => {
     const [selectedMembers, setSelectedMembers] = useState([]);
     const [groupImage, setGroupImage] = useState(null);
     const [searchQuery, setSearchQuery] = useState("");
+    const [submitting, setSubmitting] = useState(false);
 
     const handleImageChange = (e) => {
         const file = e.target.files[0];
@@ -31,14 +32,20 @@ const CreateGroupModal = ({ isOpen, onClose }) => {
 
     const handleCreateGroup = async (e) => {
         e.preventDefault();
+        if (submitting) return; // guard against double-submit (prevents duplicate groups)
         if (!groupName.trim()) return toast.error("Group name is required");
         if (selectedMembers.length < 2) return toast.error("Select at least 2 other members");
 
-        await createConversation({ type: "group", name: groupName.trim(), members: selectedMembers, groupImage });
-        onClose();
-        setGroupName("");
-        setSelectedMembers([]);
-        setGroupImage(null);
+        setSubmitting(true);
+        try {
+            await createConversation({ type: "group", name: groupName.trim(), members: selectedMembers, groupImage });
+            onClose();
+            setGroupName("");
+            setSelectedMembers([]);
+            setGroupImage(null);
+        } finally {
+            setSubmitting(false);
+        }
     };
 
     if (!isOpen) return null;
@@ -131,11 +138,11 @@ const CreateGroupModal = ({ isOpen, onClose }) => {
                     <div className="border-t p-4" style={{ borderColor: C.border }}>
                         <button
                             type="submit"
-                            disabled={!groupName.trim() || selectedMembers.length < 2}
+                            disabled={submitting || !groupName.trim() || selectedMembers.length < 2}
                             className="w-full rounded-xl py-3 font-bold transition-opacity hover:opacity-90 disabled:opacity-50"
                             style={{ background: C.teal, color: C.onAccent }}
                         >
-                            Create Group ({selectedMembers.length + 1} Members)
+                            {submitting ? "Creating…" : `Create Group (${selectedMembers.length + 1} Members)`}
                         </button>
                     </div>
                 </form>

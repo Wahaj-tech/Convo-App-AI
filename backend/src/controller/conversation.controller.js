@@ -84,6 +84,17 @@ export const createConversation = async (req, res) => {
       const populated = await Conversation.findById(conversation._id)
         .populate("members", "-password");//Replace IDs with actual full data from another collection. In this case, we replace the member IDs with their full user objects (name, profilePic) so the frontend can show that info in the chat sidebar. We exclude the password field for security.
 
+      // Join both members' sockets to the room and notify them, so a brand-new
+      // direct chat shows up live for the other person too (no refresh needed).
+      for (const memberId of sortedMembers) {
+        const memberSocketId = getReceiverSocketId(memberId.toString());
+        if (memberSocketId) {
+          const memberSocket = io.sockets.sockets.get(memberSocketId);
+          if (memberSocket) memberSocket.join(`conv:${conversation._id}`);
+        }
+      }
+      emitToConversation(conversation._id, "conversationUpdated", populated);
+
       return res.status(201).json(populated);
     }
 
@@ -145,6 +156,10 @@ export const createConversation = async (req, res) => {
           }
         }
       }
+
+      // Now that members are in the room, tell their clients about the new group
+      // so it appears in their chat list in real time (no refresh needed).
+      emitToConversation(conversation._id, "conversationUpdated", populated);
 
       return res.status(201).json(populated);
     }

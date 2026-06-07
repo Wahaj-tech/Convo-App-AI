@@ -35,7 +35,7 @@ const ChatHeader = () => {
     const isGroup = selectedConversation.type === "group";
     const otherMember = isGroup ? null : selectedConversation.members.find(m => m._id !== authUser?._id);
 
-    const displayName = isGroup ? selectedConversation.name : (otherMember?.fullName || "Chat");
+    const displayName = isGroup ? selectedConversation.name : (otherMember?.fullName || "Deleted user");
     const displayImage = isGroup ? selectedConversation.groupImage : otherMember?.profilePic;
     const isOnline = !isGroup && otherMember && onlineUsers.includes(otherMember._id);
 

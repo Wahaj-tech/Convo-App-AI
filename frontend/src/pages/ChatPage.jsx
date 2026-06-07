@@ -141,7 +141,7 @@ function SideNavContent({ onClose, onNewChat, onOpenProfile }) {
 function ConversationRow({ conv, authUser, onlineUsers, selected, onClick }) {
   const isGroup = conv.type === "group";
   const other = isGroup ? null : conv.members?.find((m) => m._id !== authUser?._id);
-  const name = isGroup ? conv.name : other?.fullName || "Chat";
+  const name = isGroup ? conv.name : other?.fullName || "Deleted user";
   const image = isGroup ? conv.groupImage : other?.profilePic;
   const online = !isGroup && other && onlineUsers.includes(other._id);
   const preview = conv.lastMessage
@@ -220,9 +220,13 @@ function ListPane({ onOpenNav, onNewChat }) {
   const isContacts = activeTab === "contacts";
 
   const filteredConvs = conversations.filter((c) => {
-    const other = c.type === "direct" ? c.members?.find((m) => m._id !== authUser?._id) : null;
-    const name = c.type === "group" ? c.name : other?.fullName || "";
-    return name.toLowerCase().includes(search.toLowerCase());
+    if (c.type === "direct") {
+      const other = c.members?.find((m) => m._id !== authUser?._id);
+      // Other participant was deleted from the DB → hide this orphaned chat.
+      if (!other) return false;
+      return other.fullName.toLowerCase().includes(search.toLowerCase());
+    }
+    return (c.name || "").toLowerCase().includes(search.toLowerCase());
   });
   const filteredContacts = allContacts.filter((c) =>
     c.fullName?.toLowerCase().includes(search.toLowerCase()),

@@ -112,11 +112,16 @@ const ConversationMemoryPanel = ({ isOpen, onClose }) => {
                                 <ul className="space-y-2">
                                     {memory.keyDecisions.map((d, i) => (
                                         <li key={i} className="rounded-lg border p-3 text-sm" style={{ background: C.deep, borderColor: C.border, color: C.text }}>
+                                            {/* AI-suggested decisions are tagged distinctly from team decisions */}
                                             <span
                                                 className="mb-1 inline-block rounded-sm px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
-                                                style={{ background: "rgba(234,88,12,0.2)", color: C.teal }}
+                                                style={
+                                                    d.source === "ai"
+                                                        ? { background: "rgba(139,92,246,0.18)", color: "#8b5cf6" }
+                                                        : { background: "rgba(234,88,12,0.2)", color: C.teal }
+                                                }
                                             >
-                                                Decision
+                                                {d.source === "ai" ? "AI Suggestion" : "Decision"}
                                             </span>
                                             <p>{d.decision}</p>
                                             {d.madeBy && d.madeBy !== "Unknown" && (
@@ -145,9 +150,20 @@ const ConversationMemoryPanel = ({ isOpen, onClose }) => {
                                                 <p style={a.status === "done" ? { textDecoration: "line-through", color: C.muted } : undefined}>
                                                     {a.task}
                                                 </p>
-                                                {a.assignedTo && a.assignedTo !== "Unassigned" && (
-                                                    <p className="mt-1 text-[11px]" style={{ color: C.muted }}>→ {a.assignedTo}</p>
-                                                )}
+                                                <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px]" style={{ color: C.muted }}>
+                                                    {a.assignedTo && a.assignedTo !== "Unassigned" && <span>→ {a.assignedTo}</span>}
+                                                    {a.priority && a.priority !== "medium" && (
+                                                        <span
+                                                            className="rounded px-1.5 py-0.5 font-semibold uppercase"
+                                                            style={a.priority === "high"
+                                                                ? { background: "rgba(224,108,117,0.15)", color: "#e06c75" }
+                                                                : { background: C.active, color: C.muted }}
+                                                        >
+                                                            {a.priority}
+                                                        </span>
+                                                    )}
+                                                    {a.dueDate && <span>· due {a.dueDate}</span>}
+                                                </div>
                                             </div>
                                             <button
                                                 onClick={() => toggleActionItem(selectedConversation._id, a._id, NEXT_STATUS[a.status])}

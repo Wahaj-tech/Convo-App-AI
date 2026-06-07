@@ -30,6 +30,10 @@ const keyDecisionSchema = new mongoose.Schema(
     decision: { type: String, required: true }, // the decision itself
     madeBy: { type: String, default: "Unknown" }, // sender's display name (a string, not an ID — simpler)
     context: { type: String, default: "" }, // one line of "why"
+    // Who actually made the call: "human" = the team agreed to it; "ai" = an AI
+    // persona only *suggested* it (so the UI can keep team decisions and AI
+    // suggestions visually distinct, not lumped together).
+    source: { type: String, enum: ["human", "ai"], default: "human" },
     timestamp: { type: Date, default: Date.now },
   },
   { _id: false }
@@ -46,6 +50,12 @@ const actionItemSchema = new mongoose.Schema({
     enum: ["pending", "in_progress", "done"],
     default: "pending",
   },
+  priority: {
+    type: String,
+    enum: ["low", "medium", "high"],
+    default: "medium",
+  },
+  dueDate: { type: String, default: "" }, // short free-text deadline if one was mentioned (e.g. "Fri", "Oct 24")
   createdAt: { type: Date, default: Date.now },
 });
 

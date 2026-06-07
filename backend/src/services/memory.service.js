@@ -56,11 +56,15 @@ const countNewMessages = async (conversationId, lastId) => {
 };
 
 // Turn a list of message docs into a plain "[Name]: text" transcript for the LLM.
+// AI turns are prefixed "AI·" so the summarizer can tell humans from AI personas
+// (only humans make "decisions"; AI personas merely "suggest").
 const toTranscript = (messages) =>
   messages
     .map((m) => {
       const name =
-        m.senderType === "ai" ? "Convo AI" : m.senderId?.fullName || "User";
+        m.senderType === "ai"
+          ? `AI·${m.personaId?.name || "Convo AI"}`
+          : m.senderId?.fullName || "User";
       const body = m.text || (m.image ? "(sent an image)" : "");
       return `[${name}]: ${body}`;
     })
@@ -88,7 +92,8 @@ export const updateConversationSummary = async (conversationId) => {
     const newMessages = await Message.find(query)
       .sort({ createdAt: 1 })
       .limit(MAX_MESSAGES_PER_SUMMARY)
-      .populate("senderId", "fullName");
+      .populate("senderId", "fullName")
+      .populate("personaId", "name");
 
     if (newMessages.length === 0) return memory; // nothing to do
 
@@ -99,11 +104,14 @@ export const updateConversationSummary = async (conversationId) => {
         decision: d.decision,
         madeBy: d.madeBy,
         context: d.context,
+        source: d.source,
       })),
       actionItems: memory.actionItems.map((a) => ({
         task: a.task,
         assignedTo: a.assignedTo,
         status: a.status,
+        priority: a.priority,
+        dueDate: a.dueDate,
       })),
       topics: memory.topics,
     };
@@ -111,22 +119,22 @@ export const updateConversationSummary = async (conversationId) => {
     const prompt = `EXISTING MEMORY (JSON):
 ${JSON.stringify(existing, null, 2)}
 
-NEW MESSAGES (chronological, "[Sender]: text"):
+NEW MESSAGES (chronological, "[Sender]: text"; speakers prefixed "AI·" are AI personas, not humans):
 ${toTranscript(newMessages)}
 
 Produce the UPDATED memory by merging the new messages into the existing memory:
 - summary: a concise rolling paragraph of what this conversation is about and where it stands.
 - topics: short keyword list of subjects discussed (max ~12).
-- keyDecisions: concrete decisions the group actually reached. Keep prior ones unless clearly reversed.
-- actionItems: concrete todos/follow-ups. Keep prior ones; preserve their existing status unless the new messages clearly indicate progress or completion.
-Names in "madeBy"/"assignedTo" should match the [Sender] labels.`;
+- keyDecisions: only decisions the HUMAN participants explicitly agreed to (source "human", madeBy = the human's name). An AI persona's recommendation that humans did NOT accept must either be omitted or marked source "ai" — never credited to a human. Keep prior decisions unless clearly reversed.
+- actionItems: concrete todos with a real owner. Add priority (low/medium/high; infer from urgency, default medium) and dueDate (short text like "Fri"/"Oct 24" if stated, else ""). Keep prior items; preserve their status unless the messages clearly show progress/completion.
+Ignore greetings, jokes, and off-topic chatter — never fabricate decisions or tasks from casual messages.`;
 
     // JSON-mode call to Groq — returns a parsed object matching the keys below.
     const parsed = await generateJson([
       {
         role: "system",
-        content: `You maintain a structured, rolling memory of a team conversation. Merge the new messages into the existing memory faithfully — never invent decisions or tasks. Respond with ONLY a JSON object with exactly these keys:
-{ "summary": string, "topics": string[], "keyDecisions": [{ "decision": string, "madeBy": string, "context": string }], "actionItems": [{ "task": string, "assignedTo": string, "status": "pending"|"in_progress"|"done" }] }`,
+        content: `You maintain a structured, rolling memory of a team conversation. Merge faithfully — never invent decisions or tasks, and ignore casual/noise messages. Only HUMANS make "decisions"; AI personas (speakers prefixed "AI·") only suggest — mark those source "ai" and never attribute them to a human. Respond with ONLY a JSON object with exactly these keys:
+{ "summary": string, "topics": string[], "keyDecisions": [{ "decision": string, "madeBy": string, "context": string, "source": "human"|"ai" }], "actionItems": [{ "task": string, "assignedTo": string, "status": "pending"|"in_progress"|"done", "priority": "low"|"medium"|"high", "dueDate": string }] }`,
       },
       { role: "user", content: prompt },
     ]);
@@ -137,26 +145,42 @@ Names in "madeBy"/"assignedTo" should match the [Sender] labels.`;
       ? parsed.topics.slice(0, 20)
       : memory.topics;
 
-    memory.keyDecisions = (parsed.keyDecisions || []).map((d) => ({
-      decision: d.decision,
-      madeBy: d.madeBy || "Unknown",
-      context: d.context || "",
-      timestamp: new Date(),
-    }));
+    // Preserve the ORIGINAL timestamp of a decision we already had (match by text),
+    // so re-summarizing doesn't keep resetting "when" it was made. Cap to 25.
+    const prevDecision = new Map(
+      memory.keyDecisions.map((d) => [d.decision.trim().toLowerCase(), d])
+    );
+    memory.keyDecisions = (parsed.keyDecisions || []).slice(-25).map((d) => {
+      const prev = prevDecision.get((d.decision || "").trim().toLowerCase());
+      return {
+        decision: d.decision,
+        madeBy: d.madeBy || "Unknown",
+        context: d.context || "",
+        source: d.source === "ai" ? "ai" : "human",
+        timestamp: prev?.timestamp || new Date(),
+      };
+    });
 
     // Action items: a human may have manually ticked one "done" via the panel.
     // We honor that — if it was done before, it STAYS done regardless of the LLM.
-    // Otherwise we take the LLM's status (so it can move pending → in_progress).
-    const prevStatus = new Map(
-      memory.actionItems.map((a) => [a.task.trim().toLowerCase(), a.status])
+    // Otherwise we take the LLM's status. Original createdAt and any human priority
+    // are preserved; new priority/dueDate are carried through. Cap to 30.
+    const prevItem = new Map(
+      memory.actionItems.map((a) => [a.task.trim().toLowerCase(), a])
     );
-    memory.actionItems = (parsed.actionItems || []).map((a) => {
-      const prev = prevStatus.get((a.task || "").trim().toLowerCase());
-      const status = prev === "done" ? "done" : a.status || prev || "pending";
+    memory.actionItems = (parsed.actionItems || []).slice(-30).map((a) => {
+      const prev = prevItem.get((a.task || "").trim().toLowerCase());
+      const status = prev?.status === "done" ? "done" : a.status || prev?.status || "pending";
+      const priority = ["low", "medium", "high"].includes(a.priority)
+        ? a.priority
+        : prev?.priority || "medium";
       return {
         task: a.task,
         assignedTo: a.assignedTo || "Unassigned",
         status,
+        priority,
+        dueDate: a.dueDate || prev?.dueDate || "",
+        createdAt: prev?.createdAt || new Date(),
       };
     });
 

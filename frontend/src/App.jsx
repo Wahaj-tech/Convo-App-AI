@@ -6,6 +6,7 @@ import PreviewIndexPage from './pages/PreviewIndexPage'
 import PreviewRoutePage from './pages/PreviewRoutePage'
 import LoginPage from './pages/LoginPage'
 import SignUpPage from './pages/SignUpPage'
+import WhyConvoApp from './pages/WhyConvoApp'
 import { useAuthStore } from './store/useAuthStore'
 import PageLoader from './components/PageLoader'
 import { Toaster } from "react-hot-toast";
@@ -41,6 +42,9 @@ const App = () => {
         {/* Auth pages — full-screen editorial light theme (own background) */}
         <Route path='/signup' element={!authUser ? <SignUpPage /> : <Navigate to={"/"} />} />
         <Route path='/login' element={!authUser ? <LoginPage /> : <Navigate to={"/"} />} />
+
+        {/* Animated marketing landing — public */}
+        <Route path='/why' element={<WhyConvoApp />} />
 
         {/* Figma design previews — public routes for review */}
         <Route path='/hub' element={<DecoratedBg><ChatHubPage /></DecoratedBg>} />

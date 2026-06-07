@@ -1,41 +1,23 @@
-<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Convo AI logo">
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="ConvoApp logo">
   <defs>
-    <!-- Brand gradient: violet → indigo → cyan (AI accent → collaboration) -->
-    <linearGradient id="bg" x1="64" y1="48" x2="448" y2="464" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#8B5CF6"/>
-      <stop offset="0.5" stop-color="#6366F1"/>
-      <stop offset="1" stop-color="#06B6D4"/>
+    <linearGradient id="appbg" x1="48" y1="24" x2="464" y2="488" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fb923c"/>
+      <stop offset="0.55" stop-color="#f97316"/>
+      <stop offset="1" stop-color="#ea580c"/>
     </linearGradient>
-    <!-- Sparkle uses the same gradient so it reads as "brand" on the white bubble -->
-    <linearGradient id="spark" x1="178" y1="134" x2="334" y2="290" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#7C3AED"/>
-      <stop offset="1" stop-color="#06B6D4"/>
+    <linearGradient id="sheen" x1="256" y1="0" x2="256" y2="320" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.22"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
     </linearGradient>
-    <!-- Soft top sheen for a little iOS-style depth -->
-    <linearGradient id="sheen" x1="256" y1="0" x2="256" y2="512" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.18"/>
-      <stop offset="0.45" stop-color="#FFFFFF" stop-opacity="0"/>
-    </linearGradient>
-    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="0" dy="6" stdDeviation="10" flood-color="#1E1B4B" flood-opacity="0.25"/>
-    </filter>
   </defs>
-
-  <!-- iOS-style rounded squircle -->
-  <rect x="0" y="0" width="512" height="512" rx="114" fill="url(#bg)"/>
-  <rect x="0" y="0" width="512" height="512" rx="114" fill="url(#sheen)"/>
-
-  <!-- White speech bubble (conversation) with a tail -->
-  <g filter="url(#shadow)">
-    <path d="M150 378 L176 318 L246 318 Z" fill="#FFFFFF"/>
-    <rect x="112" y="120" width="288" height="210" rx="58" fill="#FFFFFF"/>
-  </g>
-
-  <!-- 4-point sparkle (the AI) -->
-  <path d="M256 134
-           C256 173 217 212 178 212
-           C217 212 256 251 256 290
-           C256 251 295 212 334 212
-           C295 212 256 173 256 134 Z"
-        fill="url(#spark)"/>
+  <!-- iOS-style rounded app icon -->
+  <rect width="512" height="512" rx="114" fill="url(#appbg)"/>
+  <rect width="512" height="512" rx="114" fill="url(#sheen)"/>
+  <!-- chat bubble -->
+  <rect x="150" y="150" width="212" height="150" rx="46" fill="#ffffff"/>
+  <path d="M182 280 L182 358 Q182 368 192 360 L248 296 Z" fill="#ffffff"/>
+  <!-- typing dots -->
+  <circle cx="206" cy="225" r="18" fill="#f97316"/>
+  <circle cx="256" cy="225" r="18" fill="#f97316"/>
+  <circle cx="306" cy="225" r="18" fill="#f97316"/>
 </svg>

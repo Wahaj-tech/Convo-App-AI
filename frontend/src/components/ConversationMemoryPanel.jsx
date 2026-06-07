@@ -20,7 +20,7 @@ const NEXT_STATUS = {
 const STATUS_STYLES = {
     pending: { background: C.active, color: C.muted },
     in_progress: { background: "rgba(217,164,6,0.15)", color: "#d9a406" },
-    done: { background: "rgba(0,168,132,0.15)", color: C.teal },
+    done: { background: "rgba(234,88,12,0.15)", color: C.teal },
 };
 
 const ConversationMemoryPanel = ({ isOpen, onClose }) => {
@@ -114,7 +114,7 @@ const ConversationMemoryPanel = ({ isOpen, onClose }) => {
                                         <li key={i} className="rounded-lg border p-3 text-sm" style={{ background: C.deep, borderColor: C.border, color: C.text }}>
                                             <span
                                                 className="mb-1 inline-block rounded-sm px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
-                                                style={{ background: "rgba(0,168,132,0.2)", color: C.teal }}
+                                                style={{ background: "rgba(234,88,12,0.2)", color: C.teal }}
                                             >
                                                 Decision
                                             </span>

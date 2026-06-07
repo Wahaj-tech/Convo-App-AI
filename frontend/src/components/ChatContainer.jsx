@@ -78,7 +78,7 @@ const ChatContainer = () => {
       <ChatHeader />
       <div ref={scrollRef} onScroll={handleScroll} className='flex-1 overflow-y-auto px-4 py-6 md:px-10'>
         {messages.length > 0 && !isMessagesLoading ? (
-          <div className='mx-auto flex max-w-3xl flex-col gap-6'>
+          <div className='mx-auto flex w-full max-w-5xl flex-col gap-6'>
             {/* older-page loader / start-of-conversation marker */}
             {isLoadingOlder && (
               <div className="flex items-center justify-center gap-2 py-1 text-xs" style={{ color: C.muted }}>

@@ -3,8 +3,8 @@ import React from 'react'
 import {Loader} from 'lucide-react'
 const PageLoader = () => {
   return (
-    <div className='h-screen flex items-center justify-center'>
-        <Loader className="size-10 animate-spin"/>
+    <div className='flex h-screen items-center justify-center' style={{ background: '#f1f0ec' }}>
+        <Loader className="size-10 animate-spin" style={{ color: '#ea580c' }} />
     </div>
   )
 }

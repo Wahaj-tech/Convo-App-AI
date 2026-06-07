@@ -71,20 +71,23 @@ function SideNavContent({ onClose, onNewChat }) {
   return (
     <div className="flex h-full w-64 flex-col px-4 py-6" style={{ background: C.panel }}>
       {/* brand */}
-      <div className="px-2 pb-8">
-        <p className="text-2xl font-bold" style={{ color: C.teal }}>
-          ConvoApp
-        </p>
-        <p className="text-xs font-semibold tracking-wider" style={{ color: C.muted }}>
-          AI Collaboration
-        </p>
+      <div className="flex items-center gap-2.5 px-2 pb-8">
+        <img src="/logo.svg" alt="" className="size-9 rounded-[10px]" />
+        <div className="leading-tight">
+          <p className="text-xl font-bold" style={{ color: C.teal }}>
+            ConvoApp
+          </p>
+          <p className="text-[11px] font-semibold tracking-wider" style={{ color: C.muted }}>
+            AI Collaboration
+          </p>
+        </div>
       </div>
 
       {/* new chat */}
       <button
         onClick={() => { onNewChat?.(); onClose?.(); }}
         className="mb-6 flex items-center justify-center gap-2 rounded py-2 text-sm font-medium"
-        style={{ background: C.teal, color: C.deep }}
+        style={{ background: C.teal, color: C.onAccent }}
       >
         <Plus size={16} />
         New Chat
@@ -162,15 +165,16 @@ function ConversationRow({ conv, authUser, onlineUsers, selected, onClick }) {
       }}
     >
       <div className="relative shrink-0">
-        {image ? (
-          <img src={image} alt={name} className="size-12 rounded-xl object-cover" />
+        {isGroup ? (
+          image ? (
+            <img src={image} alt={name} className="size-12 rounded-xl object-cover" />
+          ) : (
+            <div className="flex size-12 items-center justify-center rounded-xl border" style={{ background: C.active, borderColor: C.border }}>
+              <Users size={22} style={{ color: C.muted }} />
+            </div>
+          )
         ) : (
-          <div
-            className="flex size-12 items-center justify-center rounded-xl border"
-            style={{ background: isGroup ? C.active : C.tealDim, borderColor: C.border }}
-          >
-            {isGroup ? <Users size={22} style={{ color: C.muted }} /> : <Bot size={22} style={{ color: C.teal }} />}
-          </div>
+          <img src={image || "/avatar.png"} alt={name} className="size-12 rounded-xl border object-cover" style={{ borderColor: C.border }} />
         )}
         {online && (
           <span className="absolute bottom-0 right-0 size-3 rounded-full border-2" style={{ background: C.teal, borderColor: C.deep }} />
@@ -254,7 +258,7 @@ function ListPane({ onOpenNav, onNewChat }) {
         <button
           onClick={onNewChat}
           className="flex size-10 shrink-0 items-center justify-center rounded"
-          style={{ background: C.teal, color: C.deep }}
+          style={{ background: C.teal, color: C.onAccent }}
           title="New group chat"
         >
           <Plus size={20} />

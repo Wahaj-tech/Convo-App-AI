@@ -38,9 +38,9 @@ const App = () => {
         {/* Real app — full-screen, no decorated background */}
         <Route path='/' element={authUser ? <ChatPage /> : <Navigate to={"/login"} />} />
 
-        {/* Auth pages — keep the decorated background */}
-        <Route path='/signup' element={!authUser ? <DecoratedBg><SignUpPage /></DecoratedBg> : <Navigate to={"/"} />} />
-        <Route path='/login' element={!authUser ? <DecoratedBg><LoginPage /></DecoratedBg> : <Navigate to={"/"} />} />
+        {/* Auth pages — full-screen editorial light theme (own background) */}
+        <Route path='/signup' element={!authUser ? <SignUpPage /> : <Navigate to={"/"} />} />
+        <Route path='/login' element={!authUser ? <LoginPage /> : <Navigate to={"/"} />} />
 
         {/* Figma design previews — public routes for review */}
         <Route path='/hub' element={<DecoratedBg><ChatHubPage /></DecoratedBg>} />

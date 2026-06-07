@@ -53,12 +53,16 @@ const ChatHeader = () => {
 
                     {/* avatar */}
                     <div className="relative shrink-0">
-                        {displayImage ? (
-                            <img src={displayImage} alt={displayName} className="size-10 rounded-xl object-cover" />
+                        {isGroup ? (
+                            displayImage ? (
+                                <img src={displayImage} alt={displayName} className="size-10 rounded-xl object-cover" />
+                            ) : (
+                                <div className="flex size-10 items-center justify-center rounded-xl" style={{ background: C.active }}>
+                                    <Users size={20} style={{ color: C.muted }} />
+                                </div>
+                            )
                         ) : (
-                            <div className="flex size-10 items-center justify-center rounded-xl" style={{ background: isGroup ? C.active : C.tealDim }}>
-                                {isGroup ? <Users size={20} style={{ color: C.muted }} /> : <Bot size={20} style={{ color: C.teal }} />}
-                            </div>
+                            <img src={displayImage || "/avatar.png"} alt={displayName} className="size-10 rounded-xl object-cover" />
                         )}
                         {isOnline && (
                             <span className="absolute bottom-0 right-0 size-2.5 rounded-full border-2" style={{ background: C.teal, borderColor: C.panel }} />

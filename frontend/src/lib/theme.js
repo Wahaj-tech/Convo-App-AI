@@ -1,14 +1,16 @@
-// Shared "Deep Dark" palette (from the Figma designs) used across the real app.
-// WhatsApp-style deep-dark teal.
+// Shared app palette. The app uses a LIGHT cream canvas with an ORANGE accent.
+// Semantic key names are kept (incl. the legacy `teal`/`tealDim` names) so every
+// component that imports `C` flips automatically — change values here, not usages.
 export const C = {
-  deep: "#0b141a", // app / chat background
-  panel: "#111b21", // side nav + cards
-  panelAlt: "#202c33", // search input + AI bubble
-  active: "#2a3942", // active/selected row
-  border: "#222d34",
-  teal: "#00a884", // primary accent
-  tealDim: "rgba(0,168,132,0.1)",
-  text: "#e9edef", // primary text
-  muted: "#8696a0", // secondary text
-  userBubble: "#005c4b", // outgoing message bubble
+  deep: "#f1f0ec", // canvas / chat background (cream)
+  panel: "#ffffff", // side nav, headers, cards
+  panelAlt: "#f5f3ee", // inputs, incoming / AI bubbles
+  active: "#ece9e2", // selected / hovered surface (warm gray)
+  border: "#e3e0d8", // borders & dividers
+  teal: "#ea580c", // PRIMARY ACCENT — orange (name kept for compatibility)
+  tealDim: "rgba(234,88,12,0.12)", // orange tint (avatars / washes)
+  onAccent: "#ffffff", // text / icons on the orange accent
+  text: "#141414", // primary text (ink)
+  muted: "#6b6b6b", // secondary text
+  userBubble: "#ffe2cf", // outgoing message bubble (light orange)
 };

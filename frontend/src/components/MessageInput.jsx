@@ -90,7 +90,7 @@ function MessageInput() {
         </div>
       )}
 
-      <div className="relative mx-auto max-w-3xl">
+      <div className="relative mx-auto max-w-5xl">
         {/* @mention autocomplete */}
         {suggestions.length > 0 && (
           <div
@@ -167,7 +167,7 @@ function MessageInput() {
             type="submit"
             disabled={!canSend}
             className="flex size-10 shrink-0 items-center justify-center rounded disabled:opacity-40"
-            style={{ background: C.teal, color: C.deep }}
+            style={{ background: C.teal, color: C.onAccent }}
           >
             <Send className="size-5" />
           </button>

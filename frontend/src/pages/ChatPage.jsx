@@ -328,9 +328,19 @@ function ListPane({ onOpenNav, onNewChat }) {
 
 // ---- page shell ------------------------------------------------------------
 export default function ChatPage() {
-  const { selectedConversation } = useChatStore();
+  const { selectedConversation, subscribeToMessages, unsubscribeFromMessages } = useChatStore();
+  const socket = useAuthStore((s) => s.socket);
   const [navOpen, setNavOpen] = useState(false);
   const [groupModalOpen, setGroupModalOpen] = useState(false);
+
+  // Subscribe to realtime events at the top level so the sidebar AND the open
+  // chat stay live — not just when a conversation is open. Re-runs if the socket
+  // instance changes (reconnect).
+  useEffect(() => {
+    if (!socket) return;
+    subscribeToMessages();
+    return () => unsubscribeFromMessages();
+  }, [socket, subscribeToMessages, unsubscribeFromMessages]);
 
   return (
     <div className="flex h-screen w-full overflow-hidden" style={{ background: C.deep }}>

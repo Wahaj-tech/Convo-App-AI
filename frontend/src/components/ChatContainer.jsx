@@ -12,23 +12,20 @@ import { C } from '../lib/theme';
 
 const ChatContainer = () => {
   const {
-    selectedConversation, getMessages, messages, isMessagesLoading,
-    unsubscribeFromMessages, subscribeToMessages, aiTyping,
+    selectedConversation, getMessages, messages, isMessagesLoading, aiTyping,
     loadOlderMessages, hasMoreMessages, isLoadingOlder,
   } = useChatStore();
   const { authUser } = useAuthStore();
 
   const isAiTyping = aiTyping[selectedConversation?._id];
 
+  // Load this conversation's messages and join its room. Realtime listeners are
+  // set up globally in ChatPage, so they are NOT (re)registered here.
   useEffect(() => {
     if (selectedConversation) {
       getMessages(selectedConversation._id);
-      subscribeToMessages();
     }
-    return () => {
-      unsubscribeFromMessages();
-    }
-  }, [selectedConversation, getMessages, subscribeToMessages, unsubscribeFromMessages]);
+  }, [selectedConversation, getMessages]);
 
   const scrollRef = useRef(null);
   const messageEndRef = useRef(null);

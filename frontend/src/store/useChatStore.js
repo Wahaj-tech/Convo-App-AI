@@ -277,25 +277,53 @@ export const useChatStore = create((set, get) => ({
         }
     },
 
+    // Re-join every conversation's socket room (called on (re)connect — Render's
+    // free tier drops idle sockets, and without re-joining, realtime silently dies).
+    rejoinRooms: () => {
+        const socket = useAuthStore.getState().socket;
+        if (!socket) return;
+        const { conversations, selectedConversation } = get();
+        const ids = conversations.map((c) => c._id);
+        if (ids.length) socket.emit("joinConversations", ids);
+        if (selectedConversation) socket.emit("joinConversation", selectedConversation._id);
+    },
+
     subscribeToMessages: () => {
         const socket = useAuthStore.getState().socket;
         if (!socket) return;
 
+        // Remove any existing listeners first so this is safe to call more than once
+        // (prevents duplicate handlers → duplicate messages).
+        get().unsubscribeFromMessages();
+
+        // On (re)connect, re-join all rooms so realtime keeps working after a drop.
+        socket.on("connect", () => {
+            get().rejoinRooms();
+            // Refresh the sidebar in case we missed updates while disconnected.
+            get().getMyConversations();
+        });
+
         socket.on("newMessage", (newMessage) => {
-            const { isSoundEnabled, conversations, selectedConversation } = get();
+            const { isSoundEnabled, conversations, selectedConversation, messages } = get();
 
             // Update the last message preview in the sidebar regardless of which chat is open
             set({
-                conversations: conversations.map(c => 
-                    c._id === newMessage.conversationId 
+                conversations: conversations.map(c =>
+                    c._id === newMessage.conversationId
                         ? { ...c, lastMessage: newMessage, lastMessageAt: newMessage.createdAt }
                         : c
                 )
             });
 
-            // If the message is for the currently open conversation, add it to the messages list
-            if (selectedConversation && newMessage.conversationId === selectedConversation._id) {
-                set({ messages: [...get().messages, newMessage] });
+            // If the message is for the open conversation, append it — but de-dup by _id
+            // so a message we already have (optimistic copy, or a stray echo of our own
+            // send) is never shown twice.
+            if (
+                selectedConversation &&
+                newMessage.conversationId === selectedConversation._id &&
+                !messages.some((m) => m._id === newMessage._id)
+            ) {
+                set({ messages: [...messages, newMessage] });
             }
 
             if (isSoundEnabled) {
@@ -327,11 +355,17 @@ export const useChatStore = create((set, get) => ({
 
         socket.on("conversationUpdated", (updatedConversation) => {
             const { conversations, selectedConversation } = get();
+            const exists = conversations.some(c => c._id === updatedConversation._id);
             set({
-                conversations: conversations.map(c => 
-                    c._id === updatedConversation._id ? updatedConversation : c
-                )
+                // Upsert: update if we already have it, otherwise add it to the top
+                // (this is how a NEW group you were just added to appears in real time).
+                conversations: exists
+                    ? conversations.map(c => c._id === updatedConversation._id ? updatedConversation : c)
+                    : [updatedConversation, ...conversations]
             });
+            // Make sure we're in the new room so future messages arrive live.
+            const socket = useAuthStore.getState().socket;
+            if (!exists && socket) socket.emit("joinConversation", updatedConversation._id);
             if (selectedConversation?._id === updatedConversation._id) {
                 set({ selectedConversation: updatedConversation });
             }
@@ -352,6 +386,7 @@ export const useChatStore = create((set, get) => ({
     unsubscribeFromMessages: () => {
         const socket = useAuthStore.getState().socket;
         if (socket) {
+            socket.off("connect");
             socket.off("newMessage");
             socket.off("aiTyping");
             socket.off("aiError");

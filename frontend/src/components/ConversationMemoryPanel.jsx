@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useChatStore } from "../store/useChatStore";
 import {
     X,
@@ -7,6 +7,8 @@ import {
     Lightbulb,
     Tag,
     Loader2,
+    Plus,
+    RefreshCw,
 } from "lucide-react";
 import { C } from "../lib/theme";
 
@@ -24,13 +26,21 @@ const STATUS_STYLES = {
 };
 
 const ConversationMemoryPanel = ({ isOpen, onClose }) => {
-    const { selectedConversation, memory, isMemoryLoading, getMemory, toggleActionItem } = useChatStore();
+    const { selectedConversation, memory, isMemoryLoading, getMemory, toggleActionItem, addActionItem, regenerateMemory } = useChatStore();
+    const [newTask, setNewTask] = useState("");
 
     useEffect(() => {
         if (isOpen && selectedConversation?._id) getMemory(selectedConversation._id);
     }, [isOpen, selectedConversation?._id, getMemory]);
 
     if (!isOpen || !selectedConversation) return null;
+
+    const handleAdd = async (e) => {
+        e?.preventDefault();
+        if (!newTask.trim()) return;
+        await addActionItem(selectedConversation._id, { task: newTask.trim() });
+        setNewTask("");
+    };
 
     const hasContent =
         memory &&
@@ -47,9 +57,20 @@ const ConversationMemoryPanel = ({ isOpen, onClose }) => {
                     <BrainCircuit className="size-5" style={{ color: C.teal }} />
                     Conversation Memory
                 </h2>
-                <button onClick={onClose} className="rounded-lg p-1" style={{ color: C.muted }}>
-                    <X className="size-5" />
-                </button>
+                <div className="flex items-center gap-1">
+                    <button
+                        onClick={() => regenerateMemory(selectedConversation._id)}
+                        disabled={isMemoryLoading}
+                        className="rounded-lg p-1.5 disabled:opacity-50"
+                        style={{ color: C.muted }}
+                        title="Regenerate memory from the conversation"
+                    >
+                        <RefreshCw className={`size-4 ${isMemoryLoading ? "animate-spin" : ""}`} />
+                    </button>
+                    <button onClick={onClose} className="rounded-lg p-1" style={{ color: C.muted }}>
+                        <X className="size-5" />
+                    </button>
+                </div>
             </div>
 
             <div className="flex-1 space-y-6 overflow-y-auto p-4">
@@ -58,18 +79,15 @@ const ConversationMemoryPanel = ({ isOpen, onClose }) => {
                         <Loader2 className="mb-2 size-6 animate-spin" />
                         <p className="text-sm">Loading memory…</p>
                     </div>
-                ) : !hasContent ? (
-                    <div className="flex flex-col items-center justify-center py-16 text-center" style={{ color: C.muted }}>
-                        <BrainCircuit className="mb-3 size-10 opacity-40" />
-                        <p className="text-sm">No memory yet.</p>
-                        <p className="mt-1 max-w-[220px] text-xs">
-                            As this conversation grows, Convo AI builds a summary of decisions, action items, and topics here.
-                        </p>
-                    </div>
                 ) : (
                     <>
+                        {!hasContent && (
+                            <p className="text-xs" style={{ color: C.muted }}>
+                                No AI memory yet — it builds as the conversation grows. You can still add action items by hand below.
+                            </p>
+                        )}
                         {/* summary */}
-                        {memory.summary && (
+                        {memory?.summary && (
                             <section className="space-y-2">
                                 <h4 className="text-xs font-semibold uppercase tracking-wider" style={{ color: C.muted }}>
                                     Rolling Summary
@@ -84,7 +102,7 @@ const ConversationMemoryPanel = ({ isOpen, onClose }) => {
                         )}
 
                         {/* topics */}
-                        {memory.topics?.length > 0 && (
+                        {memory?.topics?.length > 0 && (
                             <section className="space-y-2">
                                 <h4 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider" style={{ color: C.muted }}>
                                     <Tag className="size-3.5" /> Topics
@@ -104,7 +122,7 @@ const ConversationMemoryPanel = ({ isOpen, onClose }) => {
                         )}
 
                         {/* key decisions */}
-                        {memory.keyDecisions?.length > 0 && (
+                        {memory?.keyDecisions?.length > 0 && (
                             <section className="space-y-2">
                                 <h4 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider" style={{ color: C.muted }}>
                                     <Lightbulb className="size-3.5" /> Key Decisions
@@ -133,12 +151,12 @@ const ConversationMemoryPanel = ({ isOpen, onClose }) => {
                             </section>
                         )}
 
-                        {/* action items */}
-                        {memory.actionItems?.length > 0 && (
-                            <section className="space-y-2">
-                                <h4 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider" style={{ color: C.muted }}>
-                                    <ListChecks className="size-3.5" /> Action Items
-                                </h4>
+                        {/* action items — always shown so todos can be added by hand */}
+                        <section className="space-y-2">
+                            <h4 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider" style={{ color: C.muted }}>
+                                <ListChecks className="size-3.5" /> Action Items
+                            </h4>
+                            {memory?.actionItems?.length > 0 && (
                                 <ul className="space-y-2">
                                     {memory.actionItems.map((a) => (
                                         <li
@@ -176,8 +194,26 @@ const ConversationMemoryPanel = ({ isOpen, onClose }) => {
                                         </li>
                                     ))}
                                 </ul>
-                            </section>
-                        )}
+                            )}
+                            <form onSubmit={handleAdd} className="flex items-center gap-2 pt-1">
+                                <input
+                                    value={newTask}
+                                    onChange={(e) => setNewTask(e.target.value)}
+                                    placeholder="Add an action item…"
+                                    className="flex-1 rounded-lg border px-3 py-2 text-sm outline-none"
+                                    style={{ background: C.deep, borderColor: C.border, color: C.text }}
+                                />
+                                <button
+                                    type="submit"
+                                    disabled={!newTask.trim()}
+                                    className="flex size-9 shrink-0 items-center justify-center rounded-lg disabled:opacity-50"
+                                    style={{ background: C.teal, color: C.onAccent }}
+                                    title="Add action item"
+                                >
+                                    <Plus className="size-4" />
+                                </button>
+                            </form>
+                        </section>
                     </>
                 )}
             </div>

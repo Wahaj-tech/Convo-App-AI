@@ -56,6 +56,7 @@ const actionItemSchema = new mongoose.Schema({
     default: "medium",
   },
   dueDate: { type: String, default: "" }, // short free-text deadline if one was mentioned (e.g. "Fri", "Oct 24")
+  manual: { type: Boolean, default: false }, // true = a user added it by hand (protected from AI re-summarization)
   createdAt: { type: Date, default: Date.now },
 });
 

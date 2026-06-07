@@ -17,6 +17,7 @@ import { C } from "../lib/theme";
 import ChatContainer from "../components/ChatContainer";
 import NoConversationPlaceholder from "../components/NoConversationPlaceholder";
 import CreateGroupModal from "../components/CreateGroupModal";
+import ProfilePanel from "../components/ProfilePanel";
 import toast from "react-hot-toast";
 
 /*
@@ -38,24 +39,19 @@ function timeAgo(iso) {
 }
 
 // ---- side navigation -------------------------------------------------------
-function SideNavContent({ onClose, onNewChat }) {
-  const { authUser, logout, updateProfile } = useAuthStore();
+function SideNavContent({ onClose, onNewChat, onOpenProfile }) {
+  const { authUser, logout } = useAuthStore();
   const { activeTab, setActiveTab, isSoundEnabled, toggleSound, selectedConversation } = useChatStore();
-  const AVATAR_INPUT_ID = "convo-avatar-input";
 
   const go = (tab) => {
     setActiveTab(tab);
     onClose?.();
   };
 
-  const handleAvatar = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onloadend = () => updateProfile({ profilePic: reader.result });
-    reader.readAsDataURL(file);
+  const openProfile = () => {
+    onOpenProfile?.();
+    onClose?.();
   };
-  const openFilePicker = () => document.getElementById(AVATAR_INPUT_ID)?.click();
   const openPersonas = () =>
     selectedConversation
       ? document.dispatchEvent(new CustomEvent("open-personas"))
@@ -65,7 +61,7 @@ function SideNavContent({ onClose, onNewChat }) {
     { key: "chats", icon: MessageSquare, label: "Chats", onClick: () => go("chats") },
     { key: "contacts", icon: Users, label: "Contacts", onClick: () => go("contacts") },
     { key: "personas", icon: Bot, label: "Personas", onClick: openPersonas },
-    { key: "profile", icon: Settings, label: "Profile", onClick: openFilePicker },
+    { key: "profile", icon: Settings, label: "Profile", onClick: openProfile },
   ];
 
   return (
@@ -118,18 +114,17 @@ function SideNavContent({ onClose, onNewChat }) {
       {/* footer: user + actions */}
       <div className="flex flex-col gap-3 border-t pt-5" style={{ borderColor: C.border }}>
         <div className="flex items-center gap-3 px-2">
-          <button onClick={openFilePicker} className="size-10 shrink-0 overflow-hidden rounded-xl" title="Change avatar">
+          <button onClick={openProfile} className="size-10 shrink-0 overflow-hidden rounded-xl" title="Open profile">
             <img src={authUser?.profilePic || "/avatar.png"} alt={authUser?.fullName} className="size-full object-cover" />
           </button>
-          <input id={AVATAR_INPUT_ID} type="file" accept="image/*" onChange={handleAvatar} className="hidden" />
-          <div className="min-w-0 flex-1 leading-tight">
+          <button onClick={openProfile} className="min-w-0 flex-1 text-left leading-tight">
             <p className="truncate text-sm font-medium" style={{ color: C.text }}>
               {authUser?.fullName}
             </p>
             <p className="text-xs" style={{ color: C.teal }}>
               Online
             </p>
-          </div>
+          </button>
           <button onClick={toggleSound} style={{ color: C.muted }} title="Toggle sound">
             {isSoundEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
           </button>
@@ -332,6 +327,7 @@ export default function ChatPage() {
   const socket = useAuthStore((s) => s.socket);
   const [navOpen, setNavOpen] = useState(false);
   const [groupModalOpen, setGroupModalOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
 
   // Subscribe to realtime events at the top level so the sidebar AND the open
   // chat stay live — not just when a conversation is open. Re-runs if the socket
@@ -346,13 +342,13 @@ export default function ChatPage() {
     <div className="flex h-screen w-full overflow-hidden" style={{ background: C.deep }}>
       {/* desktop side nav */}
       <div className="hidden lg:flex">
-        <SideNavContent onNewChat={() => setGroupModalOpen(true)} />
+        <SideNavContent onNewChat={() => setGroupModalOpen(true)} onOpenProfile={() => setProfileOpen(true)} />
       </div>
 
       {/* mobile side-nav drawer */}
       {navOpen && (
         <div className="fixed inset-0 z-50 flex lg:hidden">
-          <SideNavContent onClose={() => setNavOpen(false)} onNewChat={() => setGroupModalOpen(true)} />
+          <SideNavContent onClose={() => setNavOpen(false)} onNewChat={() => setGroupModalOpen(true)} onOpenProfile={() => setProfileOpen(true)} />
           <div className="flex-1 bg-black/50" onClick={() => setNavOpen(false)} />
         </div>
       )}
@@ -368,6 +364,7 @@ export default function ChatPage() {
       </div>
 
       <CreateGroupModal isOpen={groupModalOpen} onClose={() => setGroupModalOpen(false)} />
+      <ProfilePanel isOpen={profileOpen} onClose={() => setProfileOpen(false)} />
     </div>
   );
 }

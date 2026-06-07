@@ -165,10 +165,11 @@ Ignore greetings, jokes, and off-topic chatter — never fabricate decisions or 
     // We honor that — if it was done before, it STAYS done regardless of the LLM.
     // Otherwise we take the LLM's status. Original createdAt and any human priority
     // are preserved; new priority/dueDate are carried through. Cap to 30.
+    const oldItems = memory.actionItems;
     const prevItem = new Map(
-      memory.actionItems.map((a) => [a.task.trim().toLowerCase(), a])
+      oldItems.map((a) => [a.task.trim().toLowerCase(), a])
     );
-    memory.actionItems = (parsed.actionItems || []).slice(-30).map((a) => {
+    const merged = (parsed.actionItems || []).slice(-30).map((a) => {
       const prev = prevItem.get((a.task || "").trim().toLowerCase());
       const status = prev?.status === "done" ? "done" : a.status || prev?.status || "pending";
       const priority = ["low", "medium", "high"].includes(a.priority)
@@ -180,9 +181,18 @@ Ignore greetings, jokes, and off-topic chatter — never fabricate decisions or 
         status,
         priority,
         dueDate: a.dueDate || prev?.dueDate || "",
+        manual: prev?.manual || false,
         createdAt: prev?.createdAt || new Date(),
       };
     });
+    // Never let the summarizer drop a user-added (manual) item.
+    const mergedTasks = new Set(merged.map((m) => m.task.trim().toLowerCase()));
+    for (const old of oldItems) {
+      if (old.manual && !mergedTasks.has(old.task.trim().toLowerCase())) {
+        merged.push(old.toObject ? old.toObject() : old);
+      }
+    }
+    memory.actionItems = merged;
 
     // Move the bookmark forward and record bookkeeping.
     memory.lastSummarizedMessageId = newMessages[newMessages.length - 1]._id;
@@ -318,6 +328,28 @@ Use this memory to answer questions about the past accurately (e.g. "what did we
 };
 
 // ============================================================
+// 6. regenerateMemory — rebuild the distilled memory from scratch
+// ============================================================
+// Clears the AI-derived content (summary, topics, decisions, AI action items)
+// and the bookmark, then re-summarizes the conversation from the start (bounded
+// to the last MAX_MESSAGES_PER_SUMMARY messages). User-added (manual) action
+// items are preserved. Useful when older memory was captured under outdated logic.
+export const regenerateMemory = async (conversationId) => {
+  const memory = await getConversationMemory(conversationId);
+  memory.summary = "";
+  memory.topics = [];
+  memory.keyDecisions = [];
+  memory.actionItems = memory.actionItems.filter((a) => a.manual); // keep hand-added todos
+  memory.lastSummarizedMessageId = null;
+  memory.lastSummarizedAt = null;
+  memory.totalMessagesProcessed = 0;
+  await memory.save();
+
+  const rebuilt = await updateConversationSummary(conversationId);
+  return rebuilt || (await getConversationMemory(conversationId));
+};
+
+// ============================================================
 // 4. setActionItemStatus — human override for a single todo
 // ============================================================
 export const setActionItemStatus = async (conversationId, itemId, status) => {
@@ -328,6 +360,25 @@ export const setActionItemStatus = async (conversationId, itemId, status) => {
   if (!item) return null;
 
   item.status = status;
+  await memory.save();
+  return memory;
+};
+
+// ============================================================
+// 5. addActionItem — let a human add a todo by hand
+// ============================================================
+// Marked manual:true so the incremental summarizer never drops it.
+export const addActionItem = async (conversationId, { task, assignedTo, priority, dueDate }) => {
+  if (!task || !task.trim()) return null;
+  const memory = await getConversationMemory(conversationId);
+  memory.actionItems.push({
+    task: task.trim().slice(0, 300),
+    assignedTo: (assignedTo || "").trim() || "Unassigned",
+    status: "pending",
+    priority: ["low", "medium", "high"].includes(priority) ? priority : "medium",
+    dueDate: (dueDate || "").trim(),
+    manual: true,
+  });
   await memory.save();
   return memory;
 };

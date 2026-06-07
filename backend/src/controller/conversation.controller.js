@@ -591,6 +591,35 @@ export const getConversationMemory = async (req, res) => {
 };
 
 // ============================================================
+// ADD ACTION ITEM  (POST /api/conversations/:id/memory/action-items)
+// ============================================================
+// Lets any member add a todo by hand (not just AI-extracted ones).
+export const addActionItem = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { id } = req.params;
+    const { task, assignedTo, priority, dueDate } = req.body;
+
+    if (!task || !task.trim()) {
+      return res.status(400).json({ message: "Task is required" });
+    }
+
+    const conversation = await requireMembership(id, userId, res);
+    if (!conversation) return;
+
+    const memory = await memoryService.addActionItem(id, { task, assignedTo, priority, dueDate });
+
+    // Live-update everyone viewing this conversation's memory panel.
+    emitToConversation(id, "memoryUpdated", memory);
+
+    res.status(200).json(memory);
+  } catch (err) {
+    console.error("Error in addActionItem:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// ============================================================
 // UPDATE ACTION ITEM STATUS
 // (PATCH /api/conversations/:id/memory/action-items/:itemId)
 // ============================================================
@@ -621,6 +650,27 @@ export const updateActionItemStatus = async (req, res) => {
     res.status(200).json(memory);
   } catch (err) {
     console.error("Error in updateActionItemStatus:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// ============================================================
+// REGENERATE MEMORY  (POST /api/conversations/:id/memory/regenerate)
+// ============================================================
+// Rebuilds the conversation's distilled memory from scratch (keeps manual todos).
+export const regenerateMemory = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { id } = req.params;
+
+    const conversation = await requireMembership(id, userId, res);
+    if (!conversation) return;
+
+    const memory = await memoryService.regenerateMemory(id);
+    emitToConversation(id, "memoryUpdated", memory);
+    res.status(200).json(memory);
+  } catch (err) {
+    console.error("Error in regenerateMemory:", err);
     res.status(500).json({ message: "Server error" });
   }
 };

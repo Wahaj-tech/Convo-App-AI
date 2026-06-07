@@ -220,6 +220,31 @@ export const useChatStore = create((set, get) => ({
         }
     },
 
+    regenerateMemory: async (conversationId) => {
+        set({ isMemoryLoading: true });
+        try {
+            const res = await axiosInstance.post(`/conversations/${conversationId}/memory/regenerate`);
+            set({ memory: res.data });
+            toast.success("Memory regenerated");
+        } catch (error) {
+            toast.error(error.response?.data.message || "Failed to regenerate memory");
+        } finally {
+            set({ isMemoryLoading: false });
+        }
+    },
+
+    addActionItem: async (conversationId, data) => {
+        try {
+            const res = await axiosInstance.post(
+                `/conversations/${conversationId}/memory/action-items`,
+                data
+            );
+            set({ memory: res.data });
+        } catch (error) {
+            toast.error(error.response?.data.message || "Failed to add action item");
+        }
+    },
+
     toggleActionItem: async (conversationId, itemId, status) => {
         try {
             const res = await axiosInstance.patch(

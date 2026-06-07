@@ -115,19 +115,61 @@ export const logout=(_, res)=>{//logout not need to be async function and req is
 
 
 
-export const updateProfile=async(req,res)=>{//this route will basiccally allow the user to update their profile Image and we would store the images in Cloudinary
-    
+// Update any subset of the editable profile fields: full name, about/bio, and/or
+// profile picture. Email is identity and stays read-only. Returns the updated user
+// (without password) directly, so the frontend can set it as authUser.
+export const updateProfile=async(req,res)=>{
     try{
-        const{profilePic}=req.body;//taking profile pic from user
-        if(!profilePic)
-            return res.status(400).json({message:"profile pic is required"})
-        const userId=req.user._id;//in req.user=we have all feild except password
+        const { profilePic, fullName, about } = req.body;
+        const userId = req.user._id;
 
-        const uploadResponse= await cloudinary.uploader.upload(profilePic);//uploading the image to cloudinary but we also have to update the database-->
-        const updatedUser=await userModel.findByIdAndUpdate(userId,{profilePic:uploadResponse.secure_url},{new:true});
-        res.status(200).json({updatedUser});
+        const updates = {};
+        if (typeof fullName === "string" && fullName.trim()) updates.fullName = fullName.trim();
+        if (typeof about === "string") updates.about = about.trim().slice(0, 200);
+        if (profilePic) {
+            const uploadResponse = await cloudinary.uploader.upload(profilePic);
+            updates.profilePic = uploadResponse.secure_url;
+        }
+
+        if (Object.keys(updates).length === 0) {
+            return res.status(400).json({ message: "Nothing to update" });
+        }
+
+        const updatedUser = await userModel
+            .findByIdAndUpdate(userId, updates, { new: true })
+            .select("-password");
+        res.status(200).json(updatedUser);
     }catch(err){
         console.error("Error in update profile:",err);
+        res.status(500).json({message:"internal server error"})
+    }
+}
+
+// Change the user's password. Requires the current password (verified with bcrypt)
+// before setting the new one.
+export const changePassword=async(req,res)=>{
+    try{
+        const { currentPassword, newPassword } = req.body;
+        if (!currentPassword || !newPassword) {
+            return res.status(400).json({ message: "Current and new password are required" });
+        }
+        if (newPassword.length < 6) {
+            return res.status(400).json({ message: "New password must be at least 6 characters" });
+        }
+
+        const user = await userModel.findById(req.user._id); // includes password
+        const isCorrect = await bcrypt.compare(currentPassword, user.password);
+        if (!isCorrect) {
+            return res.status(400).json({ message: "Current password is incorrect" });
+        }
+
+        const salt = await bcrypt.genSalt(10);
+        user.password = await bcrypt.hash(newPassword, salt);
+        await user.save();
+
+        res.status(200).json({ message: "Password updated successfully" });
+    }catch(err){
+        console.error("Error in change password:",err);
         res.status(500).json({message:"internal server error"})
     }
 }

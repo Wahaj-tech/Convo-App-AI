@@ -9,6 +9,8 @@ import {
   leaveConversation,
   getConversationMemory,
   updateActionItemStatus,
+  addActionItem,
+  regenerateMemory,
   updateConversationPersonas,
 } from "../controller/conversation.controller.js";
 import { protectRoute } from "../middleware/auth.middleware.js";
@@ -46,6 +48,12 @@ router.delete("/:id", protectRoute, leaveConversation);
 // --- Phase 3: Conversation Memory ---
 // GET /api/conversations/:id/memory      → fetch the AI's distilled memory
 router.get("/:id/memory", protectRoute, getConversationMemory);
+
+// POST /api/conversations/:id/memory/action-items → add a todo by hand
+router.post("/:id/memory/action-items", protectRoute, addActionItem);
+
+// POST /api/conversations/:id/memory/regenerate → rebuild the memory from scratch
+router.post("/:id/memory/regenerate", protectRoute, regenerateMemory);
 
 // PATCH /api/conversations/:id/memory/action-items/:itemId → toggle a todo's status
 router.patch("/:id/memory/action-items/:itemId", protectRoute, updateActionItemStatus);

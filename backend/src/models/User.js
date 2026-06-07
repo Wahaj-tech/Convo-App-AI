@@ -18,6 +18,11 @@ const userSchema=mongoose.Schema({
     profilePic:{
         type:String,
         default:""
+    },
+    about:{
+        type:String,
+        default:"",
+        maxlength:200,
     }
 },{timestamps:true})//to show user createdAt & updatedAt
 const User=mongoose.model("User",userSchema);

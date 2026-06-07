@@ -15,11 +15,12 @@ if (!ENV.GROQ_API_KEY) {
 
 const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
 
-// Single source of truth for the model. Swap this one line to change models.
-// llama-3.3-70b-versatile = strong general model with a large context window and
-// a generous free tier. Other options: "llama-3.1-8b-instant" (faster/cheaper),
-// "openai/gpt-oss-120b", "moonshotai/kimi-k2-instruct".
+// PRIMARY model — strong reasoning, but a smaller free-tier daily token budget.
 export const GROQ_MODEL = "llama-3.3-70b-versatile";
+// FALLBACK model — used automatically when the primary is rate-limited (429).
+// Faster and with a much larger free daily budget, so the AI keeps working even
+// after the 70b daily quota is exhausted. Other options: "openai/gpt-oss-120b".
+const GROQ_FALLBACK_MODEL = "llama-3.1-8b-instant";
 
 // The AI's baseline personality. Persona system prompts (Phase 4) replace this;
 // the conversation memory (Phase 3) gets appended to whichever is in effect.
@@ -31,29 +32,35 @@ export const BASE_SYSTEM_PROMPT = `You are Convo AI, an intelligent and helpful 
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-// Low-level call to Groq. `messages` is OpenAI format: [{ role, content }],
-// where role is "system" | "user" | "assistant". Returns the assistant's text.
+// One call against a SPECIFIC model. `body` is the OpenAI-format payload
+// (messages, max_tokens, …). Returns the assistant's text, or throws with
+// `.status` set on failure.
 //
-// Retries on 429 (rate limit) with backoff. The free tier caps tokens-per-minute,
-// and bursty features like the AI Roundtable can trip it; retrying lets the call
-// self-heal once the window resets instead of failing the whole flow.
-const callGroq = async (body, attempt = 0) => {
+// On 429 it does a SHORT same-model retry only for transient per-minute spikes
+// (Retry-After ≤ 10s). It deliberately does NOT sleep out long Retry-After waits
+// (a drained daily bucket can quote minutes) — instead it throws 429 fast so the
+// caller can fall back to another model rather than freezing the request.
+const callGroqOnce = async (model, body, attempt = 0) => {
   const res = await fetch(GROQ_URL, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${ENV.GROQ_API_KEY}`,
     },
-    body: JSON.stringify({ model: GROQ_MODEL, ...body }),
+    body: JSON.stringify({ model, ...body }),
   });
 
-  if (res.status === 429 && attempt < 4) {
-    // Honor the server's Retry-After when present; otherwise back off 2s, 4s, 8s…
+  if (res.status === 429) {
     const retryAfter = parseFloat(res.headers.get("retry-after"));
-    const waitMs = (Number.isFinite(retryAfter) ? retryAfter : 2 ** attempt) * 1000;
-    console.warn(`[Groq] 429 rate-limited — retrying in ${waitMs}ms (attempt ${attempt + 1}/4)`);
-    await sleep(waitMs);
-    return callGroq(body, attempt + 1);
+    const waitSec = Number.isFinite(retryAfter) ? retryAfter : 2 ** attempt;
+    if (waitSec <= 10 && attempt < 2) {
+      console.warn(`[Groq] ${model} 429 — brief retry in ${waitSec}s (attempt ${attempt + 1})`);
+      await sleep(waitSec * 1000);
+      return callGroqOnce(model, body, attempt + 1);
+    }
+    const err = new Error(`Groq API 429 (${model}): rate limited (retry-after ${Math.round(waitSec)}s)`);
+    err.status = 429;
+    throw err;
   }
 
   if (!res.ok) {
@@ -65,6 +72,21 @@ const callGroq = async (body, attempt = 0) => {
 
   const data = await res.json();
   return data.choices?.[0]?.message?.content || "";
+};
+
+// Low-level call to Groq. Tries the PRIMARY model first; if it's rate-limited
+// (e.g. the 70b daily quota is exhausted), automatically retries the SAME request
+// on the fallback model so the AI keeps working instead of failing.
+const callGroq = async (body) => {
+  try {
+    return await callGroqOnce(GROQ_MODEL, body);
+  } catch (error) {
+    if (error.status === 429 && GROQ_FALLBACK_MODEL && GROQ_FALLBACK_MODEL !== GROQ_MODEL) {
+      console.warn(`[Groq] ${GROQ_MODEL} rate-limited — falling back to ${GROQ_FALLBACK_MODEL}`);
+      return await callGroqOnce(GROQ_FALLBACK_MODEL, body);
+    }
+    throw error;
+  }
 };
 
 /**
